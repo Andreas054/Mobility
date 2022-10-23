@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DesignSurface">
+    <option name="filePathToZoomLevelMap">
+      <map>
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/drawable-v24/ic_launcher_foreground.xml" value="0.2625" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/drawable/ic_launcher_background.xml" value="0.2625" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_list.xml" value="0.24635416666666668" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_main.xml" value="0.24635416666666668" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_receptie_furnizor.xml" value="0.25052083333333336" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_receptie_furnizor_main.xml" value="0.24791666666666667" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_receptie_lista.xml" value="0.25052083333333336" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/EAN/app/src/main/res/layout/activity_settings.xml" value="0.24791666666666667" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_main.xml" value="0.2557291666666667" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_furnizor.xml" value="0.25" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_furnizor_main.xml" value="0.2557291666666667" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_lista.xml" value="0.2557291666666667" />
+        <entry key="..\:/Users/Del/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_settings.xml" value="0.34057971014492755" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_main.xml" value="0.2453125" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_furnizor.xml" value="0.33" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_furnizor_main.xml" value="0.3625" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_receptie_lista.xml" value="0.3625" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_settings.xml" value="0.3625" />
+        <entry key="..\:/Users/Dell/AndroidStudioProjects/Mobility/app/src/main/res/layout/activity_verificare_raft.xml" value="0.33" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="11" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/build/classes" />
+  </component>
+  <component name="ProjectType">
+    <option name="id" value="Android" />
+  </component>
+</project>
