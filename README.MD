@@ -8,10 +8,10 @@ Python3 script server communicating with Kotlin written app client via an HTTP s
 
 - Get IDOPERATOR for **Operator** from database:
 
-
-	CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
-	SELECT IDOPERATOR, NUME, PRENUME FROM OPERATORI;
-
+```sql
+CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
+SELECT IDOPERATOR, NUME, PRENUME FROM OPERATORI;
+```
 
 - Install Python3 on Server on **Operator** account
 - Copy ***MobilityServer*** folder to where Python3 is installed
@@ -23,10 +23,11 @@ Python3 script server communicating with Kotlin written app client via an HTTP s
 - Add ***MobilityServer.vbs*** to start at LogOn (**Operator**)
 - Insert Terminal info and arbitrary ArticoleColectate (with INTSIZE id) in database (⚠️change \<IDOPERATOR>):
 
-
-	CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
-	INSERT INTO MOB_LISTATERMINALE (NRTERMINAL, SERIETERMINAL, ISACTIV) VALUES (1, 867351038210142, 1);
-	INSERT INTO ARTICOLECOLECTATE (ID, TYPEOF, ARTNR, COD, IDOPERATOR) VALUES (2147483647, 2, 1, '1', <IDOPERATOR>);
+```sql
+CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
+INSERT INTO MOB_LISTATERMINALE (NRTERMINAL, SERIETERMINAL, ISACTIV) VALUES (1, 867351038210142, 1);
+INSERT INTO ARTICOLECOLECTATE (ID, TYPEOF, ARTNR, COD, IDOPERATOR) VALUES (2147483647, 2, 1, '1', <IDOPERATOR>);
+```
 
 ### Client Side
 
