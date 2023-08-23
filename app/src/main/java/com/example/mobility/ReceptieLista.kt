@@ -1,6 +1,7 @@
 package com.example.mobility
 
 import android.content.Intent
+import android.media.MediaPlayer
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.Settings
@@ -33,6 +34,18 @@ class ReceptieLista : AppCompatActivity() {
 
     lateinit var arrayAdapter: ArrayAdapter<String>
 
+    fun sunet_error_major() {
+        // Play custom sound to notify Major Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieLista, R.raw.error_major)
+        sunet.start()
+    }
+
+    fun sunet_error_minor() {
+        // Play custom sound to notify Minor Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieLista, R.raw.error_minor)
+        sunet.start()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_receptie_lista)
@@ -63,6 +76,7 @@ class ReceptieLista : AppCompatActivity() {
             // Save into global variable the current furnizor NAME
             furnizorcurent = parent.getItemAtPosition(position).toString()  // The item that was clicked
             if (furnizorcurent.equals("No data")) {
+                sunet_error_minor()
                 Toast.makeText(this@ReceptieLista, "Incarca lista Furnizori!", Toast.LENGTH_SHORT).show()
             }
             else {
@@ -124,6 +138,7 @@ class ReceptieLista : AppCompatActivity() {
         }
         catch (e: Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@ReceptieLista, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()

@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
+import android.widget.TextView
 
 public val timeoutconnection = 1000
 
@@ -14,6 +15,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var buttonRecFurn: Button
     private lateinit var buttonVerifRaft: Button
     private lateinit var buttonSettings: Button
+    private lateinit var textVersionName: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,10 +24,13 @@ class MainActivity : AppCompatActivity() {
         buttonRecFurn  = findViewById(R.id.buttonRecFurn)
         buttonVerifRaft  = findViewById(R.id.buttonVerifRaft)
         buttonSettings = findViewById(R.id.buttonSettings)
+        textVersionName = findViewById(R.id.textVersionName)
 
         val sharedPref = getSharedPreferences("ipAddress", Context.MODE_PRIVATE)
 
         serverip = sharedPref.getString("serverip", "default value").toString()
+
+        textVersionName.setText(BuildConfig.VERSION_NAME)
 
         configurebuttonRecFurn()
         configurebuttonVerifRaft()

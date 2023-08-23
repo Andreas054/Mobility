@@ -1,6 +1,7 @@
 package com.example.mobility
 
 import android.content.Intent
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
@@ -43,6 +44,24 @@ class ReceptieFurnizor : AppCompatActivity() {
 
     // Get the time so you can only scan once every n seconds
     var timestart=System.currentTimeMillis()
+
+    fun sunet_error_major() {
+        // Play custom sound to notify Major Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_major)
+        sunet.start()
+    }
+
+    fun sunet_error_minor() {
+        // Play custom sound to notify Minor Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_minor)
+        sunet.start()
+    }
+
+    fun sunet_clear() {
+        // Play custom sound to notify Clear text
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.clear)
+        sunet.start()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,6 +123,7 @@ class ReceptieFurnizor : AppCompatActivity() {
                     var cantitateprodus = inputCantitate.text.toString()
                     // Check if COD is NULL
                     if (codprodus.length == 0) {
+                        sunet_error_minor()
                         Toast.makeText(
                             this@ReceptieFurnizor,
                             "Codul nu poate fi NULL!",
@@ -113,6 +133,7 @@ class ReceptieFurnizor : AppCompatActivity() {
                     else {
                         // Check if CANTITATE is NULL
                         if (cantitateprodus.length == 0) {
+                            sunet_error_minor()
                             Toast.makeText(
                                 this@ReceptieFurnizor,
                                 "Cantitatea nu poate fi NULL!",
@@ -153,6 +174,7 @@ class ReceptieFurnizor : AppCompatActivity() {
                 alert.show()
             }
             else {
+                sunet_error_minor()
                 Toast.makeText(
                     this@ReceptieFurnizor,
                     "Receptie nu poate fi goala!",
@@ -186,6 +208,7 @@ class ReceptieFurnizor : AppCompatActivity() {
     private fun sendCodOnEnter() {
         var codprodus = inputCod.text.toString()
         if (codprodus.length == 0) {
+            sunet_error_minor()
             Toast.makeText(
                 this@ReceptieFurnizor,
                 "Codul nu poate fi NULL!",
@@ -207,12 +230,14 @@ class ReceptieFurnizor : AppCompatActivity() {
 
     private fun configurebuttonClearReceptie() {
         buttonClearReceptie.setOnClickListener {
+            sunet_clear()
             // the CLEAR button sets everything to default and sets focus on the inputCod
             inputCod.setText("")
             inputCantitate.setText("")
             textProdusNume.setText("Articol")
             textProdusPret.setText("Pret")
             inputCod.requestFocus()
+            inputCod.setEnabled(true)
             inputCantitate.setEnabled(false)
         }
     }
@@ -277,7 +302,9 @@ class ReceptieFurnizor : AppCompatActivity() {
                         // In case of an error the SERVER sends the pretprodus as 0
                         // So if an error occurs dont re-enable the inputCantitate editText
                         if (pretprodus != "0") {
+                            inputCod.setEnabled(false)
                             inputCantitate.setEnabled(true)
+                            inputCantitate.requestFocus()
                             // Play NOTIFICATION SOUND if COD is valid
                             try {
                                 val notification: Uri =
@@ -288,6 +315,7 @@ class ReceptieFurnizor : AppCompatActivity() {
                                 e.printStackTrace()
                             }
                         } else {
+                            sunet_error_minor()
                             Toast.makeText(
                                 this@ReceptieFurnizor,
                                 "Cod Inexistent!",
@@ -302,6 +330,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -365,6 +394,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -420,9 +450,13 @@ class ReceptieFurnizor : AppCompatActivity() {
                     }
                 }
                 // Set the text on screen to default and update the How many items in the receptie and total of everything
+
+//// maybe use Clear function here?
                 runOnUiThread {
                     inputCod.setText("")
                     inputCantitate.setText("")
+                    inputCod.setEnabled(true)
+                    inputCod.requestFocus()
                     inputCantitate.setEnabled(false)
                     textProdusNume.setText("Articol")
                     textProdusPret.setText("Pret")
@@ -432,6 +466,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -493,6 +528,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()

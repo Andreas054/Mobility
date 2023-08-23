@@ -1,19 +1,20 @@
 package com.example.mobility
 
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.annotation.UiThread
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONTokener
-import java.lang.Exception
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
+
 
 // Global variable for the current docnr (NR FACTURA)
 public var docnr = 1L
@@ -32,6 +33,18 @@ class ReceptieFurnizorMain : AppCompatActivity() {
     private lateinit var buttonBackRecList: Button
 
     lateinit var arrayAdapter: ArrayAdapter<String>
+
+    fun sunet_error_major() {
+        // Play custom sound to notify Major Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_major)
+        sunet.start()
+    }
+
+    fun sunet_error_minor() {
+        // Play custom sound to notify Minor Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_minor)
+        sunet.start()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +74,7 @@ class ReceptieFurnizorMain : AppCompatActivity() {
 
                     if (docnr == 0L) {
                         // NEED TO ADD IF NR FACUTRA ALREADY EXISTS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        sunet_error_minor()
                         Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
                     }
                     else {
@@ -71,6 +85,7 @@ class ReceptieFurnizorMain : AppCompatActivity() {
                 }
                 catch (e: Exception) {
                     println(e)
+                    sunet_error_major()
                     Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -86,6 +101,7 @@ class ReceptieFurnizorMain : AppCompatActivity() {
                 }
                 catch (e: Exception) {
                     println(e)
+                    sunet_error_major()
                     Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -99,6 +115,7 @@ class ReceptieFurnizorMain : AppCompatActivity() {
         listviewRecInLucru.setOnItemClickListener { parent, view, position, id ->
             val docnrcurent = parent.getItemAtPosition(position).toString()  // The item that was clicked
             if (docnrcurent.equals("No data")) {
+                sunet_error_minor()
                 Toast.makeText(this@ReceptieFurnizorMain, "Incarca Receptii in Lucru!", Toast.LENGTH_SHORT).show()
             }
             else {
@@ -179,6 +196,9 @@ class ReceptieFurnizorMain : AppCompatActivity() {
         }
         catch (e: Exception) {
             println(e)
+
+            sunet_error_major()
+
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizorMain, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -235,6 +255,9 @@ class ReceptieFurnizorMain : AppCompatActivity() {
                 }
                 else {
                     if (success.toBoolean() == false) {
+
+                        sunet_error_minor()
+
                         runOnUiThread {
                             Toast.makeText(this@ReceptieFurnizorMain, "Exista deja o receptie cu nr. " + docnr.toString() + "!", Toast.LENGTH_SHORT)
                                 .show()
@@ -245,6 +268,9 @@ class ReceptieFurnizorMain : AppCompatActivity() {
         }
         catch (e: Exception) {
             println(e)
+
+            sunet_error_major()
+
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizorMain, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()

@@ -1,5 +1,6 @@
 package com.example.mobility
 
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
@@ -31,6 +32,24 @@ class VerificareRaft : AppCompatActivity() {
     private lateinit var buttonBackMainFromVerifRaft: Button
     private lateinit var buttonClearVerif: Button
     private lateinit var buttonAddEtichetare: Button
+
+    fun sunet_error_major() {
+        // Play custom sound to notify Major Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@VerificareRaft, R.raw.error_major)
+        sunet.start()
+    }
+
+    fun sunet_error_minor() {
+        // Play custom sound to notify Minor Error
+        val sunet: MediaPlayer = MediaPlayer.create(this@VerificareRaft, R.raw.error_minor)
+        sunet.start()
+    }
+
+    fun sunet_clear() {
+        // Play custom sound to notify Clear text
+        val sunet: MediaPlayer = MediaPlayer.create(this@VerificareRaft, R.raw.clear)
+        sunet.start()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +98,7 @@ class VerificareRaft : AppCompatActivity() {
                     codOK = false
                 }
                 else {
+                    sunet_error_minor()
                     Toast.makeText(
                         this@VerificareRaft,
                         "Cod Inexistent!",
@@ -87,6 +107,7 @@ class VerificareRaft : AppCompatActivity() {
                 }
             }
             else {
+                sunet_error_minor()
                 Toast.makeText(
                     this@VerificareRaft,
                     "Codul nu poate fi NULL!",
@@ -109,7 +130,9 @@ class VerificareRaft : AppCompatActivity() {
     }
 
     private fun ClearVerif   () {
+        sunet_clear()
         // the CLEAR button sets everything to default and sets focus on the inputCod
+        inputCodVerif.setEnabled(true)
         inputCodVerif.setText("")
         textProdusNumeVerif.setText("Articol")
         textProdusPretVerif.setText("Pret")
@@ -120,6 +143,7 @@ class VerificareRaft : AppCompatActivity() {
     private fun sendCodOnEnter() {
         var codprodus = inputCodVerif.text.toString()
         if (codprodus.length == 0) {
+            sunet_error_minor()
             Toast.makeText(
                 this@VerificareRaft,
                 "Codul nu poate fi NULL!",
@@ -194,6 +218,10 @@ class VerificareRaft : AppCompatActivity() {
                         // In case of an error the SERVER sends the pretprodus as 0
                         // So if an error occurs dont re-enable the inputCantitate editText
                         if (pretprodus != "0") {
+                            // Disable text box if Cod is valid
+                            runOnUiThread {
+                                inputCodVerif.setEnabled(false)
+                              }
                             codOK = true
                             // Play NOTIFICATION SOUND if COD is valid
                             try {
@@ -205,6 +233,7 @@ class VerificareRaft : AppCompatActivity() {
                                 e.printStackTrace()
                             }
                         } else {
+                            sunet_error_minor()
                             codOK = false
                             Toast.makeText(
                                 this@VerificareRaft,
@@ -220,6 +249,7 @@ class VerificareRaft : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@VerificareRaft, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -282,11 +312,11 @@ class VerificareRaft : AppCompatActivity() {
             }
         } catch (e: java.lang.Exception) {
             println(e)
+            sunet_error_major()
             runOnUiThread {
                 Toast.makeText(this@VerificareRaft, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
             }
         }
     }
-
 }
