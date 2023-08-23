@@ -12,39 +12,23 @@ import json
 
 dbdir= '"D:\IBData\SMARTCASH.FDB"'
 #dbdir = '"172.16.0.174:D:\IBData\SMARTCASH.FDB"'
-programdir = "C:/Users/Operator/AppData/Local/Programs/Python/Python37/"
+programdir = "C:/Users/Operator/AppData/Local/Programs/Python/Python311/MobilityServer/"
 
-# ID User (1002 = Operator)
-# 1003 = Stoica
-idoperator = 1003
+# ID User (1001 = Operator)
+idoperator = 1001
 
 artnr = "0"
 
-def isqlquery(condition, selection, table, column, data):
-    tmp=os.system('echo CONNECT {}; > inputfile'.format(dbdir))
-    if condition == 1:
-        tmp=os.system('echo SELECT {} FROM {} WHERE {}={}; >> inputfile'.format(selection, table, column, data))
-    elif condition == 2:
-        tmp=os.system('echo SELECT {} FROM {} WHERE INACTIV=0 ORDER BY {}; >> inputfile'.format(selection, table, column))
-    elif condition == 3:
-        tmp=os.system('echo SELECT {} FROM {}; >> inputfile'.format(selection, table))
-    return str(subprocess.check_output('isql.exe -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
-    
-def isqlinsert(condition, table, values, matching, valueswhere):
-    tmp=os.system('echo CONNECT {}; > inputfile'.format(dbdir))
-    if condition == 1:
-        tmp=os.system('echo UPDATE OR INSERT INTO {} VALUES {} ; >> inputfile'.format(table, values))
-    if condition == 2:
-        tmp=os.system('echo UPDATE OR INSERT INTO {} {} VALUES {} MATCHING({}); >> inputfile'.format(table, valueswhere, values, matching))
-    tmp=os.system('echo COMMIT; >> inputfile')
-    return str(subprocess.check_output('isql.exe -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
-    
-def isqlupdate(condition, table, column, value, columnwhere, valuewhere):
-    tmp=os.system('echo CONNECT {}; > inputfile'.format(dbdir))
-    if condition == 1:
-        tmp=os.system('echo UPDATE {} SET {} = {} WHERE {} = {}; >> inputfile'.format(table, column, value, columnwhere, valuewhere))
-    tmp=os.system('echo COMMIT; >> inputfile')
-    return str(subprocess.check_output('isql.exe -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
+def isqlquery(data):
+    tmp=os.system('echo CONNECT {}; > MobilityServer/inputfile'.format(dbdir))
+    tmp=os.system('echo {} >> MobilityServer/inputfile'.format(data))
+    return str(subprocess.check_output('isql.lnk -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
+
+def isqlinsert(data):
+    tmp=os.system('echo CONNECT {}; > MobilityServer/inputfile'.format(dbdir))
+    tmp=os.system('echo {} >> MobilityServer/inputfile'.format(data))
+    tmp=os.system('echo COMMIT; >> MobilityServer/inputfile')
+    return str(subprocess.check_output('isql.lnk -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
 
 def getOneItemFromDB(isqloutput):
     # Try in case of empty TABLE
@@ -68,7 +52,8 @@ def getListafurnizor():
     jsonList = []
     idfurnizor = 0
     numefurnizor = "Err"
-    isqloutput = isqlquery(2, "IDFURN,NUME", "FURNIZORI", "NUME", 0)
+    isqloutput = isqlquery("SELECT IDFURN, NUME FROM FURNIZORI WHERE INACTIV = 0 ORDER BY NUME;")
+    
     isqloutput = isqloutput.split("\\n")
     for curline in isqloutput:
         try:
@@ -90,11 +75,36 @@ def getListafurnizor():
             continue
     return jsonList
 
+def getCantitateReceptie(idrec):
+    jsonList = []
+    isqloutput = isqlquery("SELECT COUNT(CANTITATE), SUM(CANTITATE) FROM MOB_RECEPTIE WHERE IDREC = {};".format(idrec))
+    try:
+        # Find first number (COUNT) in string
+        # Keep the string starting with first number
+        # Position of first whitespace (after PRET)
+        count = re.search(r"\d", isqloutput)
+        count = isqloutput[count.start():]
+        removerestcount = re.search(r"\s", count)
+
+        cantitate = count[removerestcount.start():]
+        removerestcantitate = re.search(r"\d", cantitate)
+        cantitate = cantitate[removerestcantitate.start():]
+        removerestcantitate = re.search(r"\s", cantitate)
+        cantitate = cantitate[:removerestcantitate.start()]
+        # Leave only COUNT in variable
+        count = count[:removerestcount.start()]
+        return count, cantitate
+    # On exception return error message to Android
+    except Exception as e:
+        print("errmessage")
+        return 0, 0
+
 # Get Name, Price and ARTNR of one product and return them
 def getprodus(data):
     # Cod EAN
     data = "'" + str(data) + "'"
-    isqloutput = isqlquery(1, "ARTNR", "CODURI", "COD",  data)
+    isqloutput = isqlquery("SELECT ARTNR FROM CODURI WHERE COD = {};".format(data))
+
     # Try in case of non existent COD
     try:
         # Find first number in string
@@ -105,12 +115,14 @@ def getprodus(data):
         artnr = isqloutput[artnr.start():]
         removerest = re.search(r"\s", artnr)
         artnr = artnr[:removerest.start()]
+        
     # On exception return error message to Android
     except Exception as e:
         print("errmessage")
         return "eroare", 0, 0
     # Create inputfile for PRET and IDTVA
-    isqloutput = isqlquery(1, "PRET,IDTVA", "CATALOG", "ARTNR", artnr)
+    isqloutput = isqlquery("SELECT PRET, IDTVA FROM CATALOG WHERE ARTNR = {};".format(artnr))
+    
     # Find first number (PRET) in string
     # Keep the string starting with first number
     # Position of first whitespace (after PRET)
@@ -140,7 +152,7 @@ def getprodus(data):
     pretfinal = float(pret) * tva
     pretfinal = round(pretfinal, 2)
     # Create inputfile for DESCRIERE
-    isqloutput = isqlquery(1, "DESCRIERE", "CATALOG", "ARTNR", artnr)
+    isqloutput = isqlquery("SELECT DESCRIERE FROM CATALOG WHERE ARTNR = {};".format(artnr))
     # Find first "== " and keep that in isqloutput string
     descriere = re.search("== ", isqloutput)
     isqloutput = isqloutput[descriere.start():]
@@ -154,10 +166,41 @@ def getprodus(data):
     print(pretfinal) 
     return descriere, pretfinal, artnr
 
+# Get STOC of one product and return it
+def getprodusstoc(data):
+    # Cod EAN
+    data = "'" + str(data) + "'"
+    isqloutput = isqlquery("SELECT CANTITATE FROM STOC WHERE ARTNR={};".format(data))
+
+    # In case of STOC NEGATIV
+    if isqloutput.find('-') > -1:
+        boolnegative = "-"
+    else:
+        boolnegative = ""
+    # Try in case of non existent COD
+    try:
+        # Find first number in string
+        # Keep the string starting with first number
+        # Position of first whitespace
+        # Leave only PRET in variable
+        stoc = re.search(r"\d", isqloutput)
+        stoc = isqloutput[stoc.start():]
+        removerest = re.search(r"\s", stoc)
+        stoc = stoc[:removerest.start()]
+        
+        stoc = boolnegative + stoc
+    # On exception return error message to Android
+    except Exception as e:
+        print("errmessage")
+        return 0, 0, 0
+
+    return stoc
+
+    
 # Get receptii in lucru and return DOCNR and CANTITATE_TOTALA
 def getReceptiiInLucru(idfurn):
     jsonList = [{"doc" : 0, "cantitatetotala" : 0}]
-    isqloutput = isqlquery(1, "DOC, CANTITATE_TOTALA", "MOB_RECEPTIEHEADER", "IDFURN",  str(idfurn) + " AND STARE = 0")
+    isqloutput = isqlquery("SELECT DOC, CANTITATE_TOTALA FROM MOB_RECEPTIEHEADER WHERE IDFURN = {} AND STARE = 0;".format(str(idfurn)))
     isqloutput = isqloutput.split("\\n")
     for curline in isqloutput:
         # Try in case of empty TABLE
@@ -200,9 +243,9 @@ def sendMobReceptieHeader(docnr, idfurn, boolNewReceptie):
     valueswhere = "(DATAREC, DOC, DATADOC, IDFURN, IDSTORE, IDAPLICATIE, IDTERMINAL, STARE, IDOPERATOR, IDLINK)"
     values = (datequery[1:-1], docnr, datequery[1:-1], idfurn, -1, 4, 1, 0, idoperator, 0)
     print(values)
-    isqlinsert(2, "MOB_RECEPTIEHEADER", values, "DOC, IDFURN", valueswhere)
-    
-    isqloutput = isqlquery(1, "IDREC", "MOB_RECEPTIEHEADER", "DOC",  str(docnr) + "AND IDFURN = {}".format(idfurn))
+    isqlinsert("UPDATE OR INSERT INTO MOB_RECEPTIEHEADER {} VALUES {} MATCHING(DOC, IDFURN);".format(valueswhere, values))
+
+    isqloutput = isqlquery("SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = {} AND IDFURN = {};".format(str(docnr), idfurn))
     idrec = getOneItemFromDB(isqloutput)
     return idrec
 
@@ -211,16 +254,31 @@ def sendMobReceptie(idrec, artnr, cantitate):
     now = datetime.datetime.now()
     lastupdate = str(now)[:-2]
     
-    values = (1, idrec, artnr, cantitate, lastupdate)
-    isqlinsert(1, "MOB_RECEPTIE", values, 0, 0)
+    isqloutput = isqlquery("SELECT FIRST 1 IDRECITEM FROM MOB_RECEPTIE ORDER BY IDRECITEM DESC;")
+    idrecitem = getOneItemFromDB(isqloutput)
+    idrecitem = int(idrecitem) + 1
+    
+    values = (idrecitem, idrec, artnr, cantitate, lastupdate)
+    isqlinsert("UPDATE OR INSERT INTO MOB_RECEPTIE VALUES {};".format(values))
 
 # Change the boolean STARE from MOB_RECEPTIEHEADER to 1
 def sendEmiteReceptie(idrec):
-    isqloutput = isqlquery(1, "SUM(CANTITATE)", "MOB_RECEPTIE", "IDREC",  idrec)
+    isqloutput = isqlquery("SELECT SUM(CANTITATE) FROM MOB_RECEPTIE WHERE IDREC = {};".format(idrec))
     cantitatetotala = getOneItemFromDB(isqloutput)
     
-    isqlupdate(1, "MOB_RECEPTIEHEADER", "STARE", 1, "IDREC", idrec)
-    isqlupdate(1, "MOB_RECEPTIEHEADER", "CANTITATE_TOTALA", cantitatetotala, "IDREC", idrec)
+    isqlinsert("UPDATE MOB_RECEPTIEHEADER SET STARE = 1 WHERE IDREC = {};".format(idrec))
+    isqlinsert("UPDATE MOB_RECEPTIEHEADER SET CANTITATE_TOTALA = {} WHERE IDREC = {};".format(cantitatetotala, idrec))
+
+def sendAddEtichetare(artnr, codprodus):
+    now = datetime.datetime.now()
+    dataeventadd = str(now)[:-2]
+    
+    isqloutput = isqlquery("SELECT FIRST 1 ID FROM ARTICOLECOLECTATE WHERE ID > 2000000000 ORDER BY ID ASC;")
+    idverif = int(getOneItemFromDB(isqloutput)) - 1
+    
+    isqlinsert("UPDATE OR INSERT INTO ARTICOLECOLECTATE VALUES({}, 5, {}, '{}', 0, 0, 1, {}, '{}', 0, 0, NULL, 0, 1);".format(idverif, artnr, codprodus, idoperator, dataeventadd))
+    
+    
 
 # Sample blog post data similar to
 # https://ordina-jworks.github.io/frontend/2019/03/04/vue-with-typescript.html#4-how-to-write-your-first-component
@@ -246,7 +304,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             # Write to log current date and mark stuff
             now = datetime.datetime.now()
             tmp = os.system('echo [{}] : GET Lista Furnizori >> {}MobilityServer.txt'.format(now,programdir))
-        
+
     # In case of POST requests
     def do_POST(self):
         length = int(self.headers.get('content-length'))
@@ -272,9 +330,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
             docnr = message['doc']
             idfurn = message['idfurn']
             
-            isqloutput = isqlquery(1, "IDREC", "MOB_RECEPTIEHEADER", "DOC", str(docnr) + "AND IDFURN = {}".format(idfurn))
+            isqloutput = isqlquery("SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = {} AND IDFURN = {};".format(str(docnr), idfurn))
             idrec = getOneItemFromDB(isqloutput)
-            
+
             # In case one RECEPTIE already exists with the same DOCNR send boolean false to Android
             if idrec != 0 and boolNewReceptie == True:
                 self.wfile.write(json.dumps([{'success': False, 'idrec': idrec}]).encode('utf-8'))
@@ -299,6 +357,19 @@ class _RequestHandler(BaseHTTPRequestHandler):
             # Write to log current date and mark stuff
             now = datetime.datetime.now()
             tmp = os.system('echo [{}] : POST Produs Curent Pret >> {}MobilityServer.txt'.format(now,programdir))
+        
+        # Get produs NUME, PRET, ARTNR, STOC
+        if self.path == '/produscurentpretstoc':
+            # {"codprodus": "5942325000233"}
+            codprodus = message['codprodus']
+            print(codprodus)
+            descriere, pretfinal, artnr = getprodus(codprodus)
+            stoc = getprodusstoc(artnr)
+            
+            self.wfile.write(json.dumps([{'numeprodus': descriere,'pretprodus': pretfinal, 'artnr': artnr, 'stoc': stoc}]).encode('utf-8'))
+            # Write to log current date and mark stuff
+            now = datetime.datetime.now()
+            tmp = os.system('echo [{}] : POST Produs Curent Stoc >> {}MobilityServer.txt'.format(now,programdir))
 
         # Get IDREC, ARTNR, DOCNR, CANTITATE for the current PRODUCT to add to MOB_RECEPTIE
         if self.path == '/produscurent':
@@ -315,6 +386,16 @@ class _RequestHandler(BaseHTTPRequestHandler):
             now = datetime.datetime.now()
             tmp = os.system('echo [{}] : POST Produs Curent >> {}MobilityServer.txt'.format(now,programdir))
 
+        if self.path == '/cantitatereceptie':
+            idrec = message['idrec']
+            countReceptie, cantitateReceptie = getCantitateReceptie(idrec)
+            print(countReceptie, cantitateReceptie)
+            
+            self.wfile.write(json.dumps([{'countreceptie': countReceptie,'cantitatereceptie': cantitateReceptie}]).encode('utf-8'))
+            # Write to log current date and mark stuff
+            now = datetime.datetime.now()
+            tmp = os.system('echo [{}] : POST Cantitate Receptie Curenta >> {}MobilityServer.txt'.format(now,programdir))
+
         # Change boolean STARE to 1 in MOB_RECEPTIEHEADER when receptie is FINISHED
         if self.path == '/emitereceptie':
             # {"idrec": "49"}
@@ -325,6 +406,19 @@ class _RequestHandler(BaseHTTPRequestHandler):
             # Write to log current date and mark stuff
             now = datetime.datetime.now()
             tmp = os.system('echo [{}] : POST Emite Receptie >> {}MobilityServer.txt'.format(now,programdir))
+        
+        # Change boolean STARE to 0 in ARTICOLECOLECTATE when articol is added to the list
+        if self.path == '/addetichetare':
+            # {"idrec": "49"}
+            
+            artnr = message['artnr']
+            codprodus = message['codprodus']
+            sendAddEtichetare(artnr, codprodus)
+
+            self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
+            # Write to log current date and mark stuff
+            now = datetime.datetime.now()
+            tmp = os.system('echo [{}] : POST Add Etichetare >> {}MobilityServer.txt'.format(now,programdir))
 
     def do_OPTIONS(self):
         # Send allow-origin header for preflight POST XHRs.
