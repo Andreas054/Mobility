@@ -1,4 +1,4 @@
-# Version 1.1
+# Version 1.2
 
 import subprocess
 import re
@@ -12,7 +12,7 @@ from http import HTTPStatus
 import json
 
 
-dbdir= '"D:\IBData\SMARTCASH.FDB"'
+dbdir= '"D:/IBData/SMARTCASH.FDB"'
 #dbdir = '"172.16.0.174:D:\IBData\SMARTCASH.FDB"'
 programdir = "C:/Users/Operator/AppData/Local/Programs/Python/Python311/MobilityServer/"
 
@@ -22,15 +22,22 @@ idoperator = 1001
 artnr = "0"
 
 def isqlquery(data):
-    tmp=os.system('echo CONNECT {}; > MobilityServer/inputfile'.format(dbdir))
-    tmp=os.system('echo {} >> MobilityServer/inputfile'.format(data))
-    return str(subprocess.check_output('isql.lnk -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
+    with open(programdir + "inputfile", "w") as inputFile:
+        inputFile.write("CONNECT " + dbdir + ";\n")
+        inputFile.write(data)
+    return str(subprocess.check_output("isql.lnk -u SYSDBA -p masterke -i " + programdir + "inputfile", shell=True))
 
 def isqlinsert(data):
-    tmp=os.system('echo CONNECT {}; > MobilityServer/inputfile'.format(dbdir))
-    tmp=os.system('echo {} >> MobilityServer/inputfile'.format(data))
-    tmp=os.system('echo COMMIT; >> MobilityServer/inputfile')
-    return str(subprocess.check_output('isql.lnk -u SYSDBA -p masterke -i "{}inputfile"'.format(programdir),shell=True))
+    with open(programdir + "inputfile", "w") as inputFile:
+        inputFile.write("CONNECT " + dbdir + ";\n")
+        inputFile.write(data + "\n")
+        inputFile.write("COMMIT;\n")
+    return str(subprocess.check_output("isql.lnk -u SYSDBA -p masterke -i " + programdir + "inputfile", shell=True))
+
+def writeToLog(logMessage):
+    now = datetime.datetime.now()
+    with open(programdir + "MobilityServer.txt", "a") as logFile:
+        logFile.write("[" + str(now) + "] : " + logMessage + "\n")
 
 def getOneItemFromDB(isqloutput):
     # Try in case of empty TABLE
@@ -304,8 +311,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             listafurnizori = getListafurnizor()
             self.wfile.write(json.dumps(listafurnizori).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : GET Lista Furnizori >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("GET Lista Furnizori")
 
     # In case of POST requests
     def do_POST(self):
@@ -321,8 +327,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             print(jsonList)
             self.wfile.write(json.dumps(jsonList).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Receptii In Lucru >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Receptii In Lucru")
             
         # Insert into MOB_RECEPTIEHEADER either NEW or EXISTING receptie based on boolean boolNewReceptie
         if self.path == '/mobreceptieheader':
@@ -345,8 +350,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 # Get the idrec of entry with specific DOCNR
                 self.wfile.write(json.dumps([{'success': True, 'idrec': idrec}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST MOB_RECEPTIEHEADER >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST MOB_RECEPTIEHEADER")
 
         # Get produs NUME, PRET, ARTNR
         if self.path == '/produscurentpret':
@@ -357,8 +361,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(json.dumps([{'numeprodus': descriere,'pretprodus': pretfinal, 'artnr': artnr}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Produs Curent Pret >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Produs Curent Pret")
         
         # Get produs NUME, PRET, ARTNR, STOC
         if self.path == '/produscurentpretstoc':
@@ -370,8 +373,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             
             self.wfile.write(json.dumps([{'numeprodus': descriere,'pretprodus': pretfinal, 'artnr': artnr, 'stoc': stoc}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Produs Curent Stoc >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Produs Curent Stoc")
 
         # Get IDREC, ARTNR, DOCNR, CANTITATE for the current PRODUCT to add to MOB_RECEPTIE
         if self.path == '/produscurent':
@@ -385,8 +387,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Produs Curent >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Produs Curent")
 
         if self.path == '/cantitatereceptie':
             idrec = message['idrec']
@@ -395,8 +396,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             
             self.wfile.write(json.dumps([{'countreceptie': countReceptie,'cantitatereceptie': cantitateReceptie}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Cantitate Receptie Curenta >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Cantitate Receptie Curenta")
 
         # Change boolean STARE to 1 in MOB_RECEPTIEHEADER when receptie is FINISHED
         if self.path == '/emitereceptie':
@@ -406,8 +406,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Emite Receptie >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Emite Receptie")
         
         # Change boolean STARE to 0 in ARTICOLECOLECTATE when articol is added to the list
         if self.path == '/addetichetare':
@@ -419,8 +418,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
             self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
             # Write to log current date and mark stuff
-            now = datetime.datetime.now()
-            tmp = os.system('echo [{}] : POST Add Etichetare >> {}MobilityServer.txt'.format(now,programdir))
+            writeToLog("POST Add Etichetare")
 
     def do_OPTIONS(self):
         # Send allow-origin header for preflight POST XHRs.
@@ -437,9 +435,7 @@ def run_server():
     httpd.serve_forever()
 
 # Write to log current date and mark start of program
-now = datetime.datetime.now()
-tmp = os.system('echo ==================================== >> {}MobilityServer.txt'.format(programdir))
-tmp = os.system('echo [{}] : Start program >> {}MobilityServer.txt'.format(now,programdir))
+writeToLog("====================================Start program")
 
 if __name__ == '__main__':
     run_server()

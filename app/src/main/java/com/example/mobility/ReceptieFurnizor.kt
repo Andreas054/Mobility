@@ -14,7 +14,6 @@ import android.widget.Toast
 import androidx.annotation.UiThread
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.budiyev.android.codescanner.*
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,7 +36,8 @@ class ReceptieFurnizor : AppCompatActivity() {
     private lateinit var textProdusPret: TextView
     private lateinit var textDocNr: TextView
     private lateinit var textFurnizorCurentReceptie: TextView
-    private lateinit var textCantitateReceptieNR: TextView
+    private lateinit var textNrProduseNR: TextView
+    private lateinit var textCantitateTotalaNR: TextView
     private lateinit var buttonEmiteReceptie: Button
     private lateinit var buttonClearReceptie: Button
     private lateinit var buttonBackRecMain: Button
@@ -73,7 +73,8 @@ class ReceptieFurnizor : AppCompatActivity() {
         textProdusPret = findViewById(R.id.textProdusPret)
         textDocNr = findViewById(R.id.textDocNr)
         textFurnizorCurentReceptie = findViewById(R.id.textFurnizorCurentReceptie)
-        textCantitateReceptieNR = findViewById(R.id.textCantitateReceptieNR)
+        textNrProduseNR = findViewById(R.id.textNrProduseNR)
+        textCantitateTotalaNR = findViewById(R.id.textCantitateTotalaNR)
         buttonEmiteReceptie = findViewById(R.id.buttonEmiteReceptie)
         buttonClearReceptie = findViewById(R.id.buttonClearReceptie)
         buttonBackRecMain  = findViewById(R.id.buttonBackRecMain)
@@ -228,17 +229,21 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
     }
 
+    private fun functieClearReceptie() {
+        // the CLEAR button sets everything to default and sets focus on the inputCod
+        inputCod.setText("")
+        inputCantitate.setText("")
+        textProdusNume.setText("Articol")
+        textProdusPret.setText("Pret")
+        inputCod.requestFocus()
+        inputCod.setEnabled(true)
+        inputCantitate.setEnabled(false)
+    }
+
     private fun configurebuttonClearReceptie() {
         buttonClearReceptie.setOnClickListener {
             sunet_clear()
-            // the CLEAR button sets everything to default and sets focus on the inputCod
-            inputCod.setText("")
-            inputCantitate.setText("")
-            textProdusNume.setText("Articol")
-            textProdusPret.setText("Pret")
-            inputCod.requestFocus()
-            inputCod.setEnabled(true)
-            inputCantitate.setEnabled(false)
+           functieClearReceptie()
         }
     }
 
@@ -385,7 +390,8 @@ class ReceptieFurnizor : AppCompatActivity() {
                     CantitateReceptieNR = countreceptie.toInt()
                     CantitateReceptieTotal = cantitatereceptie.toFloat().toInt()
                     runOnUiThread {
-                        textCantitateReceptieNR.setText(CantitateReceptieNR.toString() + "/" + CantitateReceptieTotal.toString())
+                        textNrProduseNR.setText(CantitateReceptieNR.toString())
+                        textCantitateTotalaNR.setText(CantitateReceptieTotal.toString())
                     }
                 } catch (e: Exception) {
                     println(e)
@@ -453,14 +459,16 @@ class ReceptieFurnizor : AppCompatActivity() {
 
 //// maybe use Clear function here?
                 runOnUiThread {
-                    inputCod.setText("")
-                    inputCantitate.setText("")
-                    inputCod.setEnabled(true)
-                    inputCod.requestFocus()
-                    inputCantitate.setEnabled(false)
-                    textProdusNume.setText("Articol")
-                    textProdusPret.setText("Pret")
-                    textCantitateReceptieNR.setText(CantitateReceptieNR.toString() + "/" + CantitateReceptieTotal)
+//                    inputCod.setText("")
+//                    inputCantitate.setText("")
+//                    inputCod.setEnabled(true)
+//                    inputCod.requestFocus()
+//                    inputCantitate.setEnabled(false)
+//                    textProdusNume.setText("Articol")
+//                    textProdusPret.setText("Pret")
+                    functieClearReceptie()
+                    textNrProduseNR.setText(CantitateReceptieNR.toString())
+                    textCantitateTotalaNR.setText(CantitateReceptieTotal.toString())
                 }
             }
         }

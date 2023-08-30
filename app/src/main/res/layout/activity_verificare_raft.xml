@@ -10,24 +10,24 @@
         android:id="@+id/textCodVerif"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="135dp"
+        android:layout_marginTop="12dp"
         android:layout_marginEnd="10dp"
         android:text="Cod"
         app:layout_constraintEnd_toStartOf="@+id/inputCodVerif"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/buttonClearVerif" />
 
     <EditText
         android:id="@+id/inputCodVerif"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="130dp"
+        android:layout_marginTop="12dp"
         android:ems="10"
         android:imeOptions="actionSend"
         android:inputType="number"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/buttonClearVerif" />
 
     <TextView
         android:id="@+id/textLabelNumeVerif"
@@ -48,6 +48,7 @@
         android:layout_marginTop="8dp"
         android:text="Articol"
         android:textSize="30sp"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textLabelNumeVerif" />
 
@@ -70,6 +71,7 @@
         android:layout_marginTop="8dp"
         android:text="Pret"
         android:textSize="28sp"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textLabelPretVerif" />
 
@@ -92,6 +94,7 @@
         android:layout_marginTop="8dp"
         android:text="Stoc"
         android:textSize="28sp"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textLabelStocVerif" />
 
@@ -109,11 +112,12 @@
         android:id="@+id/buttonClearVerif"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="16dp"
         android:text="Clear"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/buttonAddEtichetare"
-        app:layout_constraintStart_toEndOf="@+id/buttonBackMainFromVerifRaft" />
+        app:backgroundTint="@color/teal_700"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
         android:id="@+id/buttonAddEtichetare"

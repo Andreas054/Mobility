@@ -33,3 +33,9 @@ INSERT INTO ARTICOLECOLECTATE (ID, TYPEOF, ARTNR, COD, IDOPERATOR) VALUES (21474
 
 - Change Server IP Address in Settings
 
+## Usage
+
+### Sterge o receptie de la un Furnizor
+
+- **Emite Receptie** din telefon
+- Server: ***Logistica > SmartCash Mobility > Liste Receptie Furnizori*** - selecteaza receptia gresita > **Stergere Lista**
