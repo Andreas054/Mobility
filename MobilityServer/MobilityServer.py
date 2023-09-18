@@ -1,4 +1,4 @@
-# Version 1.2
+# Version 1.2.1
 
 import subprocess
 import re
@@ -282,7 +282,7 @@ def sendAddEtichetare(artnr, codprodus):
     now = datetime.datetime.now()
     dataeventadd = str(now)[:-2]
     
-    isqloutput = isqlquery("SELECT FIRST 1 ID FROM ARTICOLECOLECTATE WHERE ID ^> 2000000000 ORDER BY ID ASC;")
+    isqloutput = isqlquery("SELECT FIRST 1 ID FROM ARTICOLECOLECTATE WHERE ID > 2000000000 ORDER BY ID ASC;")
     idverif = int(getOneItemFromDB(isqloutput)) - 1
     
     isqlinsert("UPDATE OR INSERT INTO ARTICOLECOLECTATE VALUES({}, 5, {}, '{}', 0, 0, 1, {}, '{}', 0, 0, NULL, 0, 1);".format(idverif, artnr, codprodus, idoperator, dataeventadd))
