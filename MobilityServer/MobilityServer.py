@@ -1,4 +1,4 @@
-# Version 1.2.1
+# Version 1.2.2
 
 import subprocess
 import re
@@ -179,7 +179,7 @@ def getprodus(data):
 def getprodusstoc(data):
     # Cod EAN
     data = "'" + str(data) + "'"
-    isqloutput = isqlquery("SELECT CANTITATE FROM STOC WHERE ARTNR={};".format(data))
+    isqloutput = isqlquery("SELECT CANTITATE - REZERVARE FROM STOC WHERE ARTNR = {};".format(data))
 
     # In case of STOC NEGATIV
     if isqloutput.find('-') > -1:
