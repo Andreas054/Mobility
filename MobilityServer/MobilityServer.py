@@ -1,4 +1,4 @@
-# Version 1.2.2
+# Version 1.2.3
 
 import subprocess
 import re
@@ -200,8 +200,8 @@ def getprodusstoc(data):
         stoc = boolnegative + stoc
     # On exception return error message to Android
     except Exception as e:
-        print("errmessage")
-        return 0, 0, 0
+        print("errmessage Stoc")
+        return 0
 
     return stoc
 
