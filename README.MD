@@ -1,41 +1,13 @@
 # Mobility
 
-Python3 script server communicating with Kotlin written app client via an HTTP server and JSON objects.
+Mobile application for a convenience store which handles the reception of products by using a phone with a barcode scanner attached.
 
-## Installation
+The mobile app is used for:
+- reception of products from a supplier
+- checking prices of products inside the store.
 
-### Server Side
+The Python3 script which runs on the store server is used for:
+- hosting a simple HTTP server to respond to GET/POST requests from the mobile app
+- communicating with the local Firebird database.
 
-- Get IDOPERATOR for **Operator** from database:
-
-```sql
-CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
-SELECT IDOPERATOR, NUME, PRENUME FROM OPERATORI;
-```
-
-- Install Python3 on Server on **Operator** account
-- Copy ***MobilityServer*** folder to where Python3 is installed
-- Create shortcut for ***C:\Program Files\Firebird\Firebird_2_5\bin\isql.exe*** in the Python3 directory (*Python311/isql.lnk*)
-- Edit these files changing the directories:
-  - MobilityServer.bat
-  - MobilityServer.py (⚠️change **idoperator**)
-  - MobilityServer.vbs
-- Add ***MobilityServer.vbs*** to start at LogOn (**Operator**)
-- Insert Terminal info and arbitrary ArticoleColectate (with INTSIZE id) in database (⚠️change \<IDOPERATOR>):
-
-```sql
-CONNECT "192.168.50.100:D:\IBData\SMARTCASH.FDB" user sysdba password masterke;
-INSERT INTO MOB_LISTATERMINALE (NRTERMINAL, SERIETERMINAL, ISACTIV) VALUES (1, 867351038210142, 1);
-INSERT INTO ARTICOLECOLECTATE (ID, TYPEOF, ARTNR, COD, IDOPERATOR) VALUES (2147483647, 2, 1, '1', <IDOPERATOR>);
-```
-
-### Client Side
-
-- Change Server IP Address in Settings
-
-## Usage
-
-### Sterge o receptie de la un Furnizor
-
-- **Emite Receptie** din telefon
-- Server: ***Logistica > SmartCash Mobility > Liste Receptie Furnizori*** - selecteaza receptia gresita > **Stergere Lista**
+![The application being used.](https://github.com/Andreas054/Mobility/blob/main/mobility.gif)
