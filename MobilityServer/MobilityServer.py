@@ -1,298 +1,159 @@
-# Version 1.2.3
+# Version 1.3
 
-import subprocess
-import re
-import os
-import socket
+import fdb
 import time
 import datetime
-from datetime import date, timedelta
+import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from http import HTTPStatus
-import json
+from threading import Thread
 
+from config import *
 
-dbdir= '"D:/IBData/SMARTCASH.FDB"'
-#dbdir = '"172.16.0.174:D:\IBData\SMARTCASH.FDB"'
-programdir = "C:/Users/Operator/AppData/Local/Programs/Python/Python311/MobilityServer/"
-
-# ID User (1001 = Operator)
-idoperator = 1001
-
-artnr = "0"
-
-def isqlquery(data):
-    with open(programdir + "inputfile", "w") as inputFile:
-        inputFile.write("CONNECT " + dbdir + ";\n")
-        inputFile.write(data)
-    return str(subprocess.check_output("isql.lnk -u SYSDBA -p masterke -i " + programdir + "inputfile", shell=True))
-
-def isqlinsert(data):
-    with open(programdir + "inputfile", "w") as inputFile:
-        inputFile.write("CONNECT " + dbdir + ";\n")
-        inputFile.write(data + "\n")
-        inputFile.write("COMMIT;\n")
-    return str(subprocess.check_output("isql.lnk -u SYSDBA -p masterke -i " + programdir + "inputfile", shell=True))
+countReceptiiEmise = 0
+countProduseEtichetare = 0
+countProduseVerificare = 0
 
 def writeToLog(logMessage):
     now = datetime.datetime.now()
-    with open(programdir + "MobilityServer.txt", "a") as logFile:
-        logFile.write("[" + str(now) + "] : " + logMessage + "\n")
+    with open(folderProgram + "MobilityServer.txt", "a") as logFile:
+        logFile.write(f"[{now}]: {logMessage}\n")
 
-def getOneItemFromDB(isqloutput):
-    # Try in case of empty TABLE
+def checkTimeSaveLog():
+    global countReceptiiEmise
+    global countProduseEtichetare
+    global countProduseVerificare
+
+    while True:
+        now = datetime.datetime.now()
+        currentTime = int(now.strftime("%H%M"))
+        if 2150 - currentTime <= 30:
+            writeToLog(f"[{datetime.datetime.now()}] : Nr Receptii = {countReceptiiEmise} ; Nr Produse Etichetare = {countProduseEtichetare} ; Nr Produse Verificare = {countProduseVerificare}\n")
+            import sys
+            sys.exit() # exit Thread
+        time.sleep(30 * 60)
+
+def fdbSqlOperation(operationType, fetchOneAll, fdbSQLCommand):
     try:
-        # Find first number in string
-        # Keep the string starting with first number
-        # Position of first whitespace
-        # Leave only OneITEM in variable
-        oneitem = re.search(r"\d", isqloutput)
-        oneitem = isqloutput[oneitem.start():]
-        removerest = re.search(r"\s", oneitem)
-        oneitem = oneitem[:removerest.start()]
-    # On exception return error message to Android
-    except Exception as e:
-        print("errmessageRECEPTIEHEADER " + str(e))
-        return 0
-    return oneitem
+        fdbConnection = fdb.connect(dsn = dbdir, user = "sysdba", password = "masterkey") # Firebird
+        fdbCursor1 = fdbConnection.cursor()
+        fdbCursor1.execute(fdbSQLCommand)
 
-# Get lista furnizori from DB and return
+        returnString = ""
+        if operationType == "READ":
+            if fetchOneAll == "ONE":
+                returnString = fdbCursor1.fetchone()
+            else:
+                returnString = fdbCursor1.fetchall()
+        else:
+            fdbConnection.commit()
+
+        fdbConnection.close()
+        return returnString
+    
+    except Exception as e:
+        print(e)
+
 def getListafurnizor():
     jsonList = []
-    idfurnizor = 0
-    numefurnizor = "Err"
-    isqloutput = isqlquery("SELECT IDFURN, NUME FROM FURNIZORI WHERE INACTIV = 0 ORDER BY NUME;")
+    listaCursor1 = fdbSqlOperation("READ", "ALL", f"SELECT idfurn, nume FROM furnizori WHERE inactiv = 0 ORDER BY nume")
     
-    isqloutput = isqloutput.split("\\n")
-    for curline in isqloutput:
-        try:
-            idfurnizor = re.search(r"\d", curline)
-            idfurnizor = curline[idfurnizor.start():]
-            removerest = re.search(r"\s", idfurnizor)
-            curline = idfurnizor
-            idfurnizor = idfurnizor[:removerest.start()]
-            
-            numefurnizor = re.search(r"\s", curline)
-            numefurnizor = curline[numefurnizor.start()+1:]
-            removerest = re.search(r"\\r", numefurnizor)
-            numefurnizor = numefurnizor[:removerest.start()]
-            # Remove trailing whitespaces
-            numefurnizor = ' '.join(numefurnizor.split())
-            # add to jsonlist
-            jsonList.append({"id" : idfurnizor, "nume" : numefurnizor})
-        except:
-            continue
+    for idFurnizor, numeFurnizor in listaCursor1:
+        jsonList.append({"id" : idFurnizor, "nume" : numeFurnizor})
     return jsonList
 
-def getCantitateReceptie(idrec):
-    jsonList = []
-    isqloutput = isqlquery("SELECT COUNT(CANTITATE), SUM(CANTITATE) FROM MOB_RECEPTIE WHERE IDREC = {};".format(idrec))
-    try:
-        # Find first number (COUNT) in string
-        # Keep the string starting with first number
-        # Position of first whitespace (after PRET)
-        count = re.search(r"\d", isqloutput)
-        count = isqloutput[count.start():]
-        removerestcount = re.search(r"\s", count)
-
-        cantitate = count[removerestcount.start():]
-        removerestcantitate = re.search(r"\d", cantitate)
-        cantitate = cantitate[removerestcantitate.start():]
-        removerestcantitate = re.search(r"\s", cantitate)
-        cantitate = cantitate[:removerestcantitate.start()]
-        # Leave only COUNT in variable
-        count = count[:removerestcount.start()]
-        return count, cantitate
-    # On exception return error message to Android
-    except Exception as e:
-        print("errmessage")
-        return 0, 0
-
-# Get Name, Price and ARTNR of one product and return them
-def getprodus(data):
-    # Cod EAN
-    data = "'" + str(data) + "'"
-    isqloutput = isqlquery("SELECT ARTNR FROM CODURI WHERE COD = {};".format(data))
-
-    # Try in case of non existent COD
-    try:
-        # Find first number in string
-        # Keep the string starting with first number
-        # Position of first whitespace
-        # Leave only PRET in variable
-        artnr = re.search(r"\d", isqloutput)
-        artnr = isqloutput[artnr.start():]
-        removerest = re.search(r"\s", artnr)
-        artnr = artnr[:removerest.start()]
-        
-    # On exception return error message to Android
-    except Exception as e:
-        print("errmessage")
-        return "eroare", 0, 0
-    # Create inputfile for PRET and IDTVA
-    isqloutput = isqlquery("SELECT PRET, IDTVA FROM CATALOG WHERE ARTNR = {};".format(artnr))
+def getCantitateReceptie(idRec):
+    listaCursor1 = fdbSqlOperation("READ", "ONE", f"SELECT COUNT(cantitate), SUM(cantitate) FROM mob_receptie WHERE idrec = {idRec}")
     
-    # Find first number (PRET) in string
-    # Keep the string starting with first number
-    # Position of first whitespace (after PRET)
-    pret = re.search(r"\d", isqloutput)
-    pret = isqloutput[pret.start():]
-    removerestpret = re.search(r"\s", pret)
-    # Keep string after PRET
-    # Find first number (IDTVA) in PRET string
-    # Keep the string starting with first number
-    # Position of first whitespace (after IDTVA)
-    # Leave only IDTVA in variable
-    tva = pret[removerestpret.start():]
-    removeresttva = re.search(r"\d", tva)
-    tva = tva[removeresttva.start():]
-    removeresttva = re.search(r"\s", tva)
-    tva = tva[:removeresttva.start()]
-    # Leave only PRET in variable
-    pret = pret[:removerestpret.start()]
-    # Convert IDTVA into actual TVA
-    tva=float(tva)
-    if tva==1:
-        tva=1.19
-    if tva==2:
-        tva=1.09
-    if tva==3:
-        tva=1.05
-    pretfinal = float(pret) * tva
-    pretfinal = round(pretfinal, 2)
-    # Create inputfile for DESCRIERE
-    isqloutput = isqlquery("SELECT DESCRIERE FROM CATALOG WHERE ARTNR = {};".format(artnr))
-    # Find first "== " and keep that in isqloutput string
-    descriere = re.search("== ", isqloutput)
-    isqloutput = isqloutput[descriere.start():]
-    # Find first linebreak and keep that +2 characters in descriere string
-    descriere = re.search(r"\\n", isqloutput)
-    descriere = isqloutput[descriere.start()+2:]
-    # Find 3 whitespaces in a row (indicating end of DESCRIERE) and keep that in descriere string
-    removerestdescriere = re.search("   ", descriere)
-    descriere = descriere[:removerestdescriere.start()]
-    print(descriere)
-    print(pretfinal) 
-    return descriere, pretfinal, artnr
+    if listaCursor1 is None or listaCursor1[0] == 0:
+        return 0, 0.0
+    return int(listaCursor1[0]), float(listaCursor1[1])
+
+def getprodus(codEAN):
+    listaCursor1 = fdbSqlOperation("READ", "ONE", f"SELECT PRET * ((SELECT tva FROM tva WHERE tva.idtva = catalog.idtva) / 100 + 1), descriere, artnr FROM catalog WHERE ARTNR = (SELECT artnr FROM coduri WHERE codwithcrc = '{codEAN}')")
+
+    if listaCursor1 is None:
+        print(f"Cod EAN Invalid {codEAN}")
+        return None, None, None
+
+    pret, descriere, artnr = listaCursor1
+    pret = round(float(pret), 2)
+    
+    print(f"Get Produs: {artnr},{descriere},{pret}")
+    return descriere, pret, artnr
 
 # Get STOC of one product and return it
-def getprodusstoc(data):
-    # Cod EAN
-    data = "'" + str(data) + "'"
-    isqloutput = isqlquery("SELECT CANTITATE - REZERVARE FROM STOC WHERE ARTNR = {};".format(data))
+def getprodusstoc(artnr):
+    if artnr is None:
+        return None
 
-    # In case of STOC NEGATIV
-    if isqloutput.find('-') > -1:
-        boolnegative = "-"
-    else:
-        boolnegative = ""
-    # Try in case of non existent COD
-    try:
-        # Find first number in string
-        # Keep the string starting with first number
-        # Position of first whitespace
-        # Leave only PRET in variable
-        stoc = re.search(r"\d", isqloutput)
-        stoc = isqloutput[stoc.start():]
-        removerest = re.search(r"\s", stoc)
-        stoc = stoc[:removerest.start()]
-        
-        stoc = boolnegative + stoc
-    # On exception return error message to Android
-    except Exception as e:
-        print("errmessage Stoc")
+    listaCursor1 = fdbSqlOperation("READ", "ONE", f"SELECT cantitate - rezervare FROM stoc WHERE artnr = {artnr}")
+
+    if listaCursor1 is None:
+        print("Get Stoc: NULL")
         return 0
 
-    return stoc
+    return float(listaCursor1[0])
 
-    
-# Get receptii in lucru and return DOCNR and CANTITATE_TOTALA
 def getReceptiiInLucru(idfurn):
     jsonList = [{"doc" : 0, "cantitatetotala" : 0}]
-    isqloutput = isqlquery("SELECT DOC, CANTITATE_TOTALA FROM MOB_RECEPTIEHEADER WHERE IDFURN = {} AND STARE = 0;".format(str(idfurn)))
-    isqloutput = isqloutput.split("\\n")
-    for curline in isqloutput:
-        # Try in case of empty TABLE
-        try:
-            # Find first number in string
-            # Keep the string starting with first number
-            # Position of first whitespace
-            docnr = re.search(r"\d", curline)
-            docnr = curline[docnr.start():]
-            removerest = re.search(r"\s", docnr)
-            # Keep string after DOCNR
-            # Find first number (CANTITATETOTALA) in DOCNR string
-            # Keep the string starting with first number
-            # Position of first whitespace (after CANTITATETOTALA)
-            # Leave only CANTITATETOTALA in variable
-            cantitatetotala = docnr[removerest.start():]
-            removerestct = re.search(r"\d", cantitatetotala)
-            cantitatetotala = cantitatetotala[removerestct.start():]
-            removerestct = re.search(r"\s", cantitatetotala)
-            cantitatetotala = cantitatetotala[:removerestct.start()]
-            # Leave only DOCNR in variable
-            docnr = docnr[:removerest.start()]
-            docnr = int(docnr)
-            jsonList.append({"doc" : docnr, "cantitatetotala" : cantitatetotala})
-        # On exception return error message to Android
-        except Exception as e:
-            continue
+
+    listaCursor1 = fdbSqlOperation("READ", "ALL", f"SELECT doc, cantitate_totala FROM mob_receptieheader WHERE stare = 0 AND idfurn = {idfurn}")
+
+    for docnr, cantitateTotala in listaCursor1:
+        jsonList.append({"doc" : docnr, "cantitatetotala" : float(cantitateTotala)})
+
     return jsonList
 
-# Insert into MOB_RECEPTIEHEADER either NEW or EXISTING receptie based on boolean boolNewReceptie
 def sendMobReceptieHeader(docnr, idfurn, boolNewReceptie):
-    idrec = 0
     # GET CURRENT DATE IN FIREBIRD FORMAT
     now = datetime.datetime.now()
-    now = str(now)
-    datequery = now[:10]
-    datequery = "'" + datequery + "'"
-    print(datequery)
+    datequery = now.strftime('%Y-%m-%d')
     
-    valueswhere = "(DATAREC, DOC, DATADOC, IDFURN, IDSTORE, IDAPLICATIE, IDTERMINAL, STARE, IDOPERATOR, IDLINK)"
-    values = (datequery[1:-1], docnr, datequery[1:-1], idfurn, -1, 4, 1, 0, idoperator, 0)
-    print(values)
-    isqlinsert("UPDATE OR INSERT INTO MOB_RECEPTIEHEADER {} VALUES {} MATCHING(DOC, IDFURN);".format(valueswhere, values))
+    fdbSQLCommand = f"UPDATE OR INSERT INTO mob_receptieheader (DATAREC, DOC, DATADOC, IDFURN, IDSTORE, IDAPLICATIE, IDTERMINAL, STARE, IDOPERATOR) "
+    fdbSQLCommand += f"VALUES {(datequery, str(docnr), datequery, idfurn, -1, 4, idTerminal, 0, idoperator)} MATCHING(DOC, IDFURN)"
+    fdbSqlOperation("CREATE", None, fdbSQLCommand)
 
-    isqloutput = isqlquery("SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = {} AND IDFURN = {};".format(str(docnr), idfurn))
-    idrec = getOneItemFromDB(isqloutput)
-    return idrec
+    listaCursor1 = fdbSqlOperation("READ", "ONE", f"SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = '{docnr}' AND IDFURN = {idfurn}")
 
-# Insert into MOB_RECEPTIE NEW produs from receptie with cantitate
-def sendMobReceptie(idrec, artnr, cantitate):
-    now = datetime.datetime.now()
-    lastupdate = str(now)[:-2]
-    
-    isqloutput = isqlquery("SELECT FIRST 1 IDRECITEM FROM MOB_RECEPTIE ORDER BY IDRECITEM DESC;")
-    idrecitem = getOneItemFromDB(isqloutput)
-    idrecitem = int(idrecitem) + 1
-    
-    values = (idrecitem, idrec, artnr, cantitate, lastupdate)
-    isqlinsert("UPDATE OR INSERT INTO MOB_RECEPTIE VALUES {};".format(values))
+    if listaCursor1 is None:
+        print('MobReceptieHeader IDREC None???')
+        return None # This should never happen...
+    return listaCursor1[0]
 
-# Change the boolean STARE from MOB_RECEPTIEHEADER to 1
-def sendEmiteReceptie(idrec):
-    isqloutput = isqlquery("SELECT SUM(CANTITATE) FROM MOB_RECEPTIE WHERE IDREC = {};".format(idrec))
-    cantitatetotala = getOneItemFromDB(isqloutput)
+def sendMobReceptie(idRec, artnr, cantitate):
+    lastupdate = str(datetime.datetime.now())[:-2]
+    fdbSqlOperation("CREATE", None, f"INSERT INTO mob_receptie (IDREC, ARTNR, CANTITATE, LASTUPDATE) VALUES {(idRec, artnr, cantitate, lastupdate)}")
+
+def sendEmiteReceptie(idRec):
+    listaCursor1 = fdbSqlOperation("READ", "ONE", f"SELECT SUM(cantitate) FROM mob_receptie WHERE idrec = {idRec}")
+
+    if listaCursor1 is None:
+        print('EmiteReceptie CANTITATE None???')
+        return None # This should never happen...
     
-    isqlinsert("UPDATE MOB_RECEPTIEHEADER SET STARE = 1 WHERE IDREC = {};".format(idrec))
-    isqlinsert("UPDATE MOB_RECEPTIEHEADER SET CANTITATE_TOTALA = {} WHERE IDREC = {};".format(cantitatetotala, idrec))
+    cantitateTotala = listaCursor1[0]
+    
+    fdbSqlOperation("CREATE", None, f"UPDATE mob_receptieheader SET stare = 1, cantitate_totala = {cantitateTotala} WHERE idrec = {idRec}")
+
+    global countReceptiiEmise
+    countReceptiiEmise += 1
 
 def sendAddEtichetare(artnr, codprodus):
-    now = datetime.datetime.now()
-    dataeventadd = str(now)[:-2]
+    dataeventadd = str(datetime.datetime.now())[:-2]
     
-    isqloutput = isqlquery("SELECT FIRST 1 ID FROM ARTICOLECOLECTATE WHERE ID > 2000000000 ORDER BY ID ASC;")
-    idverif = int(getOneItemFromDB(isqloutput)) - 1
-    
-    isqlinsert("UPDATE OR INSERT INTO ARTICOLECOLECTATE VALUES({}, 5, {}, '{}', 0, 0, 1, {}, '{}', 0, 0, NULL, 0, 1);".format(idverif, artnr, codprodus, idoperator, dataeventadd))
-    
-    
+    fdbSQLCommand = f"INSERT INTO ARTICOLECOLECTATE (TYPEOF, ARTNR, COD, CANTITATE, IDOPERATOR, DATAEVENT_ADD, DISCOUNT, STATUS, IDLABELFORMAT) "
+    fdbSQLCommand += f"VALUES (5, {artnr}, '{codprodus}', 1, {idoperator}, '{dataeventadd}', 0, 0, 1)"
+    fdbSqlOperation("CREATE", None, fdbSQLCommand)
+
+    global countProduseEtichetare
+    countProduseEtichetare += 1
+
+threadcheckTimeSaveLog = Thread(target = checkTimeSaveLog)
+threadcheckTimeSaveLog.start()
 
 # Sample blog post data similar to
 # https://ordina-jworks.github.io/frontend/2019/03/04/vue-with-typescript.html#4-how-to-write-your-first-component
-
-
 class _RequestHandler(BaseHTTPRequestHandler):
     # Borrowing from https://gist.github.com/nitaku/10d0662536f37a087e1b
     def _set_headers(self):
@@ -337,18 +198,18 @@ class _RequestHandler(BaseHTTPRequestHandler):
             docnr = message['doc']
             idfurn = message['idfurn']
             
-            isqloutput = isqlquery("SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = {} AND IDFURN = {};".format(str(docnr), idfurn))
-            idrec = getOneItemFromDB(isqloutput)
+            idRec = fdbSqlOperation("READ", "ONE", f"SELECT IDREC FROM MOB_RECEPTIEHEADER WHERE DOC = '{docnr}' AND IDFURN = {idfurn}")
 
-            # In case one RECEPTIE already exists with the same DOCNR send boolean false to Android
-            if idrec != 0 and boolNewReceptie == True:
-                self.wfile.write(json.dumps([{'success': False, 'idrec': idrec}]).encode('utf-8'))
+            # ?????????? else
+            if idRec is not None and boolNewReceptie == True:
+                idRec = idRec[0]
+                self.wfile.write(json.dumps([{'success': False, 'idrec': idRec}]).encode('utf-8'))
                 print ("DOCNR Already Exists!!")
             else:
                 # Call subprogram to insert in DB
-                idrec = sendMobReceptieHeader(docnr, idfurn, boolNewReceptie)
-                # Get the idrec of entry with specific DOCNR
-                self.wfile.write(json.dumps([{'success': True, 'idrec': idrec}]).encode('utf-8'))
+                idRec = sendMobReceptieHeader(docnr, idfurn, boolNewReceptie)
+                # Get the idRec of entry with specific DOCNR
+                self.wfile.write(json.dumps([{'success': True, 'idrec': idRec}]).encode('utf-8'))
             # Write to log current date and mark stuff
             writeToLog("POST MOB_RECEPTIEHEADER")
 
@@ -359,7 +220,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             print(codprodus)
             descriere, pretfinal, artnr = getprodus(codprodus)
 
-            self.wfile.write(json.dumps([{'numeprodus': descriere,'pretprodus': pretfinal, 'artnr': artnr}]).encode('utf-8'))
+            self.wfile.write(json.dumps([{'numeprodus': descriere, 'pretprodus': pretfinal, 'artnr': artnr}]).encode('utf-8'))
             # Write to log current date and mark stuff
             writeToLog("POST Produs Curent Pret")
         
@@ -370,39 +231,42 @@ class _RequestHandler(BaseHTTPRequestHandler):
             print(codprodus)
             descriere, pretfinal, artnr = getprodus(codprodus)
             stoc = getprodusstoc(artnr)
-            
+
             self.wfile.write(json.dumps([{'numeprodus': descriere,'pretprodus': pretfinal, 'artnr': artnr, 'stoc': stoc}]).encode('utf-8'))
-            # Write to log current date and mark stuff
+
             writeToLog("POST Produs Curent Stoc")
+
+            global countProduseVerificare
+            countProduseVerificare += 1
 
         # Get IDREC, ARTNR, DOCNR, CANTITATE for the current PRODUCT to add to MOB_RECEPTIE
         if self.path == '/produscurent':
-            # {"idrec": "49", "artnr": "12007", "docnr": "123456", "cantitate": "15"}
+            # {"idRec": "49", "artnr": "12007", "docnr": "123456", "cantitate": "15"}
             print(message)
-            idrec = message['idrec']
+            idRec = message['idrec']
             artnr = message['artnr']
             docnr = message['docnr']
             cantitate = message['cantitate']
-            sendMobReceptie(idrec, artnr, cantitate)
+            sendMobReceptie(idRec, artnr, cantitate)
 
             self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
             # Write to log current date and mark stuff
             writeToLog("POST Produs Curent")
 
         if self.path == '/cantitatereceptie':
-            idrec = message['idrec']
-            countReceptie, cantitateReceptie = getCantitateReceptie(idrec)
+            idRec = message['idrec']
+            countReceptie, cantitateReceptie = getCantitateReceptie(idRec)
             print(countReceptie, cantitateReceptie)
             
-            self.wfile.write(json.dumps([{'countreceptie': countReceptie,'cantitatereceptie': cantitateReceptie}]).encode('utf-8'))
+            self.wfile.write(json.dumps([{'countreceptie': countReceptie, 'cantitatereceptie': cantitateReceptie}]).encode('utf-8'))
             # Write to log current date and mark stuff
             writeToLog("POST Cantitate Receptie Curenta")
 
         # Change boolean STARE to 1 in MOB_RECEPTIEHEADER when receptie is FINISHED
         if self.path == '/emitereceptie':
-            # {"idrec": "49"}
-            idrec = message['idrec']
-            sendEmiteReceptie(idrec)
+            # {"idRec": "49"}
+            idRec = message['idrec']
+            sendEmiteReceptie(idRec)
 
             self.wfile.write(json.dumps([{'success': True}]).encode('utf-8'))
             # Write to log current date and mark stuff
@@ -410,7 +274,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         
         # Change boolean STARE to 0 in ARTICOLECOLECTATE when articol is added to the list
         if self.path == '/addetichetare':
-            # {"idrec": "49"}
+            # {"idRec": "49"}
             
             artnr = message['artnr']
             codprodus = message['codprodus']

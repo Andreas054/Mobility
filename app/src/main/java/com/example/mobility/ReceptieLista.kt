@@ -4,8 +4,6 @@ import android.content.Intent
 import android.media.MediaPlayer
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.provider.Settings
-import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ListView
@@ -19,31 +17,28 @@ import java.lang.Exception
 import java.net.HttpURLConnection
 import java.net.URL
 
-// Global variables for the current furnizor and its ID
-public var furnizorcurent = "Furnizor"
-public var idfurnizorcurent = 0
-
 class ReceptieLista : AppCompatActivity() {
+    private var furnizorCurentNume = "Furnizor"
+
     // The listView with all the FURNIZORI and their IDs
-    var FurnizoriLista = mutableListOf("No data")
-    var IDFurnizoriLista = mutableListOf(0)
+    private var listaMutableFurnizoriNume = mutableListOf("No data")
+    private var listaMutableFurnizoriID = mutableListOf(0)
+
 
     private lateinit var listviewlistaFurnizori: ListView
     private lateinit var buttonGetListaFurnizori: Button
     private lateinit var buttonBackMain: Button
 
-    lateinit var arrayAdapter: ArrayAdapter<String>
+    private lateinit var arrayAdapterStorageListaFurnizori: ArrayAdapter<String>
 
-    fun sunet_error_major() {
+    private fun sunetErrorMajor() {
         // Play custom sound to notify Major Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieLista, R.raw.error_major)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieLista, R.raw.error_major).start()
     }
 
-    fun sunet_error_minor() {
+    private fun sunetErrorMinor() {
         // Play custom sound to notify Minor Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieLista, R.raw.error_minor)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieLista, R.raw.error_minor).start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,35 +49,37 @@ class ReceptieLista : AppCompatActivity() {
         buttonGetListaFurnizori  = findViewById(R.id.buttonGetListaFurnizori)
         buttonBackMain  = findViewById(R.id.buttonBackMain)
 
-        configurebuttonBack()
-
         GlobalScope.launch {
             getJsonListaFurnizori()
         }
 
-        buttonGetListaFurnizori.setOnClickListener(object : View.OnClickListener {
-            override fun onClick(v: View) {
-                GlobalScope.launch {
-                    getJsonListaFurnizori()
-                }
+        configurebuttonBack()
+
+        buttonGetListaFurnizori.setOnClickListener {
+            GlobalScope.launch {
+                getJsonListaFurnizori()
             }
-        })
+        }
 
-        val mListView = findViewById<ListView>(R.id.listviewlistaFurnizori)
-        arrayAdapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, FurnizoriLista)
-        mListView.adapter = arrayAdapter
+        arrayAdapterStorageListaFurnizori = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, listaMutableFurnizoriNume)
+        listviewlistaFurnizori.adapter = arrayAdapterStorageListaFurnizori
 
-        listviewlistaFurnizori.setOnItemClickListener { parent, view, position, id ->
+        listviewlistaFurnizori.setOnItemClickListener { parent, _, position, _ ->
             // Save into global variable the current furnizor NAME
-            furnizorcurent = parent.getItemAtPosition(position).toString()  // The item that was clicked
-            if (furnizorcurent.equals("No data")) {
-                sunet_error_minor()
-                Toast.makeText(this@ReceptieLista, "Incarca lista Furnizori!", Toast.LENGTH_SHORT).show()
-            }
-            else {
-                // Save into global variable the current furnizor ID
-                idfurnizorcurent = IDFurnizoriLista.get(position + 1)
-                val intent = Intent(this, ReceptieFurnizorMain::class.java)
+            furnizorCurentNume = parent.getItemAtPosition(position).toString()  // The item that was clicked
+            if (furnizorCurentNume == "No data") {
+                sunetErrorMinor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieLista,
+                        "Incarca lista Furnizori!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                val intent = Intent(this@ReceptieLista, ReceptieFurnizorMain::class.java)
+                intent.putExtra("furnizorCurentNume", furnizorCurentNume)
+                intent.putExtra("furnizorCurentID", listaMutableFurnizoriID[position + 1])
                 startActivity(intent)
             }
         }
@@ -95,15 +92,13 @@ class ReceptieLista : AppCompatActivity() {
     }
 
     @UiThread
-    suspend fun getJsonListaFurnizori()  {
+    fun getJsonListaFurnizori()  {
         try {
-            val url = URL("http://" + serverip + ":8001/furnizori")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/furnizori")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "GET"  // optional default is GET
                 println("\nSent 'GET' request to URL : $url; Response Code : $responseCode")
 
@@ -119,26 +114,24 @@ class ReceptieLista : AppCompatActivity() {
                 val jsonArray = JSONTokener(response).nextValue() as JSONArray
 
                 // Clear the list before updating it, afterwards add all FURNIZOR names and FURNIZOR IDs
-                FurnizoriLista.clear()
-                //IDFurnizoriLista.clear()
+                listaMutableFurnizoriNume.clear()
                 for (i in 0 until jsonArray.length()) {
                     val item = jsonArray.getJSONObject(i)
-                    val id = item.getString("id").toInt()
+                    val id = item.getInt("id")
                     val nume = item.getString("nume")
-                    FurnizoriLista.add(nume)
-                    IDFurnizoriLista.add(id)
+                    listaMutableFurnizoriNume.add(nume)
+                    listaMutableFurnizoriID.add(id)
                 }
 
                 // runOnUiThread to update the Screen with new values
                 runOnUiThread {
-                    arrayAdapter.notifyDataSetChanged()
-
+                    arrayAdapterStorageListaFurnizori.notifyDataSetChanged()
                 }
             }
         }
         catch (e: Exception) {
             println(e)
-            sunet_error_major()
+            sunetErrorMajor()
             runOnUiThread {
                 Toast.makeText(this@ReceptieLista, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()

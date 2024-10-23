@@ -7,10 +7,6 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 
-public val timeoutconnection = 1000
-
-public var serverip = "172.16.0.154"
-
 class MainActivity : AppCompatActivity() {
     private lateinit var buttonRecFurn: Button
     private lateinit var buttonVerifRaft: Button
@@ -30,7 +26,7 @@ class MainActivity : AppCompatActivity() {
 
         serverip = sharedPref.getString("serverip", "default value").toString()
 
-        textVersionName.setText(BuildConfig.VERSION_NAME)
+        textVersionName.text = BuildConfig.VERSION_NAME
 
         configurebuttonRecFurn()
         configurebuttonVerifRaft()

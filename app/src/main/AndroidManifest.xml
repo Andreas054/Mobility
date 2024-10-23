@@ -3,7 +3,7 @@
     package="com.example.mobility">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <!--    <uses-permission android:name="android.permission.CAMERA" />-->
 
     <application
         android:allowBackup="true"
@@ -15,7 +15,7 @@
         android:usesCleartextTraffic="true">
         <activity
             android:name=".VerificareRaft"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/title_activity_verificare_raft"
             android:theme="@style/Theme.Mobility.NoActionBar" />
         <activity
@@ -30,10 +30,10 @@
         <activity
             android:name=".ReceptieLista"
             android:exported="true" />
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

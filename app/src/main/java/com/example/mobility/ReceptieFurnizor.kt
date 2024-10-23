@@ -18,17 +18,25 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONTokener
 import java.net.*
 
 
-var ab = ""
 class ReceptieFurnizor : AppCompatActivity() {
+//    furnizorCurentNume & docnr & idrec from ReceptieFurnizorMain
+    private var furnizorCurentNume = "Furnizor"
+
+    private var docnr = 1L // Nr Factura
+    private var idrec = 0
+
+
+
+    private var artnr = 0
     // How many items have been sent to the server
-    var CantitateReceptieNR = 0
+    private var cantitateReceptieNR = 0
     // The total of everything that has been sent to the server
-    var CantitateReceptieTotal = 0
-    var artnrGLOBAL = 0
+    private var cantitateReceptieTotal = 0.0
 
     private lateinit var inputCod: EditText
     private lateinit var inputCantitate: EditText
@@ -42,25 +50,19 @@ class ReceptieFurnizor : AppCompatActivity() {
     private lateinit var buttonClearReceptie: Button
     private lateinit var buttonBackRecMain: Button
 
-    // Get the time so you can only scan once every n seconds
-    var timestart=System.currentTimeMillis()
-
-    fun sunet_error_major() {
+    private fun sunetErrorMajor() {
         // Play custom sound to notify Major Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_major)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_major).start()
     }
 
-    fun sunet_error_minor() {
+    private fun sunetErrorMinor() {
         // Play custom sound to notify Minor Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_minor)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieFurnizor, R.raw.error_minor).start()
     }
 
-    fun sunet_clear() {
+    private fun sunetClear() {
         // Play custom sound to notify Clear text
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizor, R.raw.clear)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieFurnizor, R.raw.clear).start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,22 +81,30 @@ class ReceptieFurnizor : AppCompatActivity() {
         buttonClearReceptie = findViewById(R.id.buttonClearReceptie)
         buttonBackRecMain  = findViewById(R.id.buttonBackRecMain)
 
+        val bundle = intent.extras!!
+        furnizorCurentNume = bundle.getString("furnizorCurentNume")!!
+        docnr = bundle.getLong("docnr")
+        idrec = bundle.getInt("idrec")
+
+
         // Set cursor on COD
         inputCod.requestFocus()
-
         // Set the DocNR text to NR FACTURA
-        textDocNr.setText(docnr.toString())
+        textDocNr.text = docnr.toString()
         // Set the Top text to the current FURNIZOR NAME
-        textFurnizorCurentReceptie.setText(furnizorcurent)
+        textFurnizorCurentReceptie.text = furnizorCurentNume
         // Disable the CANTITATE INPUT by default
-        inputCantitate.setEnabled(false)
+        inputCantitate.isEnabled = false
 
         GlobalScope.launch {
             getJsonCountCantitate()
         }
 
+        configurebuttonClearReceptie()
+        configurebuttonBack()
+
         // Listen for the carriage return key(\r) on the inputCod editText from Scanner => send to the SERVER
-        inputCod.setOnKeyListener { v, keyCode, keyEvent ->
+        inputCod.setOnKeyListener { _, keyCode, keyEvent ->
             // keycode 66 = Carriage Return
             if(keyCode == 66 && keyEvent.action == KeyEvent.ACTION_UP) {
                 sendCodOnEnter()
@@ -106,7 +116,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
 
         // Listen for the send key(ENTER) on the inputCod editText => send to the SERVER
-        inputCod.setOnEditorActionListener { v, actionId, event ->
+        inputCod.setOnEditorActionListener { _, actionId, _ ->
             return@setOnEditorActionListener when (actionId) {
                 EditorInfo.IME_ACTION_SEND -> {
                     sendCodOnEnter()
@@ -117,37 +127,52 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
 
         // Listen for the send key(ENTER) on the inputCantitate editText => send to the SERVER along with the COD
-        inputCantitate.setOnEditorActionListener { v, actionId, event ->
+        inputCantitate.setOnEditorActionListener { _, actionId, _ ->
             return@setOnEditorActionListener when (actionId) {
                 EditorInfo.IME_ACTION_SEND -> {
-                    var codprodus = inputCod.text.toString()
-                    var cantitateprodus = inputCantitate.text.toString()
+                    val codEANProdus = inputCod.text.toString()
+                    val cantitateprodus = inputCantitate.text.toString()
                     // Check if COD is NULL
-                    if (codprodus.length == 0) {
-                        sunet_error_minor()
-                        Toast.makeText(
-                            this@ReceptieFurnizor,
-                            "Codul nu poate fi NULL!",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    else {
-                        // Check if CANTITATE is NULL
-                        if (cantitateprodus.length == 0) {
-                            sunet_error_minor()
+                    if (codEANProdus.isEmpty()) {
+                        sunetErrorMinor()
+                        runOnUiThread {
                             Toast.makeText(
                                 this@ReceptieFurnizor,
-                                "Cantitatea nu poate fi NULL!",
+                                "Codul nu poate fi NULL!",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                        // If COD and CANTITATE are !NULL add 1 to the How many items in receptie and add the total to the total of everything
-                        // Afterwards send COD and CANTITATE to the SERVER
+                    } else {
+                        if (codEANProdus.startsWith("0")) {
+                            sunetErrorMinor()
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this@ReceptieFurnizor,
+                                    "Codul nu poate incepe cu 0!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
                         else {
-                            CantitateReceptieNR ++
-                            CantitateReceptieTotal += inputCantitate.text.toString().toInt()
-                            GlobalScope.launch {
-                                sendJsonArticolCurent(inputCod.text.toString())
+                            // Check if CANTITATE is NULL
+                            if (cantitateprodus.isEmpty() or cantitateprodus.startsWith("0")) {
+                                sunetErrorMinor()
+                                runOnUiThread {
+                                    Toast.makeText(
+                                        this@ReceptieFurnizor,
+                                        "Cantitatea nu poate fi NULL!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            // If COD and CANTITATE are NOT NULL add 1 to the How many items in receptie and add the total to the total of everything
+                            // Afterwards send COD and CANTITATE to the SERVER
+                            else {
+                                cantitateReceptieNR++
+                                cantitateReceptieTotal += inputCantitate.text.toString().toInt()
+                                GlobalScope.launch {
+                                    sendJsonArticolCurent()
+                                }
                             }
                         }
                     }
@@ -159,15 +184,15 @@ class ReceptieFurnizor : AppCompatActivity() {
 
         buttonEmiteReceptie.setOnClickListener {
             val builder = AlertDialog.Builder(this@ReceptieFurnizor)
-            if (CantitateReceptieTotal > 0) {
+            if (cantitateReceptieTotal > 0) {
                 builder.setMessage("Finalizare receptie?")
                     .setCancelable(false)
-                    .setPositiveButton("Da") { dialog, id ->
+                    .setPositiveButton("Da") { _, _ ->
                         GlobalScope.launch {
                             sendJsonEmiteReceptie()
                         }
                     }
-                    .setNegativeButton("Nu") { dialog, id ->
+                    .setNegativeButton("Nu") { dialog, _ ->
                         // Dismiss the dialog
                         dialog.dismiss()
                     }
@@ -175,56 +200,60 @@ class ReceptieFurnizor : AppCompatActivity() {
                 alert.show()
             }
             else {
-                sunet_error_minor()
-                Toast.makeText(
-                    this@ReceptieFurnizor,
-                    "Receptie nu poate fi goala!",
-                    Toast.LENGTH_SHORT
-                ).show()
+                sunetErrorMinor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieFurnizor,
+                        "Receptie nu poate fi goala!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
-
-        configurebuttonClearReceptie()
-        configurebuttonBack()
-
     }
 
     // On back button press go back to Lista Furnizori
-    private var backPressedTime:Long = 0
-    lateinit var backToast:Toast
+    private var backPressedTime = 0L
+
     override fun onBackPressed() {
-        backToast = Toast.makeText(this, "Apasa din nou pentru a te intoarce", Toast.LENGTH_LONG)
         if (backPressedTime + 2000 > System.currentTimeMillis()) {
-            backToast.cancel()
             finish()
             val intent = Intent(applicationContext, ReceptieLista::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             startActivity(intent)
         } else {
-            backToast.show()
+            runOnUiThread {
+                Toast.makeText(this, "Apasa din nou pentru a te intoarce", Toast.LENGTH_LONG).show()
+            }
         }
         backPressedTime = System.currentTimeMillis()
     }
 
     private fun sendCodOnEnter() {
-        var codprodus = inputCod.text.toString()
-        if (codprodus.length == 0) {
-            sunet_error_minor()
-            Toast.makeText(
-                this@ReceptieFurnizor,
-                "Codul nu poate fi NULL!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        else {
-            // when is similitar to the switch
-            when (codprodus.length) {
-                8 -> codprodus = codprodus.dropLast(1)
-                // If EAN-13 => cut the last letter
-                13 -> codprodus = codprodus.dropLast(1)
+        val codEANProdus = inputCod.text.toString()
+        if (codEANProdus.isEmpty()) {
+            sunetErrorMinor()
+            runOnUiThread {
+                Toast.makeText(
+                    this@ReceptieFurnizor,
+                    "Codul nu poate fi NULL!",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
-            GlobalScope.launch {
-                getJsonArticolCurent(codprodus)
+        } else {
+            if (codEANProdus.startsWith("0")) {
+                sunetErrorMinor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieFurnizor,
+                        "Codul nu poate incepe cu 0!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                GlobalScope.launch {
+                    getJsonArticolCurent(codEANProdus)
+                }
             }
         }
     }
@@ -233,16 +262,16 @@ class ReceptieFurnizor : AppCompatActivity() {
         // the CLEAR button sets everything to default and sets focus on the inputCod
         inputCod.setText("")
         inputCantitate.setText("")
-        textProdusNume.setText("Articol")
-        textProdusPret.setText("Pret")
+        textProdusNume.text = "Articol"
+        textProdusPret.text = "Pret"
         inputCod.requestFocus()
-        inputCod.setEnabled(true)
-        inputCantitate.setEnabled(false)
+        inputCod.isEnabled = true
+        inputCantitate.isEnabled = false
     }
 
     private fun configurebuttonClearReceptie() {
         buttonClearReceptie.setOnClickListener {
-            sunet_clear()
+            sunetClear()
            functieClearReceptie()
         }
     }
@@ -258,27 +287,22 @@ class ReceptieFurnizor : AppCompatActivity() {
 
     @UiThread
     // Get the NAME and PRICE of the current scanned product and send it to the SERVER
-    suspend fun getJsonArticolCurent(codprodus: String)  {
+    fun getJsonArticolCurent(codEANProdus: String)  {
         try {
-            val url = URL("http://" + serverip + ":8001/produscurentpret")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/produscurentpret")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"codprodus\": " + codprodus + "}"
+                val jsonrequest = "{\"codprodus\": $codEANProdus}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
 
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
@@ -290,52 +314,53 @@ class ReceptieFurnizor : AppCompatActivity() {
                     }
                 }
 
+                // Convert the response string to a JSON array
+                val jsonArray = JSONTokener(response).nextValue() as JSONArray
+                // Convert the response string to a JSON array
+                // The SERVER should return the name and price of the product
+                val item = jsonArray.getJSONObject(0)
                 try {
-                    // Convert the response string to a JSON array
-                    val jsonArray = JSONTokener(response).nextValue() as JSONArray
-                    // Convert the response string to a JSON array
-                    // The SERVER should return the name and price of the product
-                    val item = jsonArray.getJSONObject(0)
                     val numeprodus = item.getString("numeprodus")
-                    val pretprodus = item.getString("pretprodus")
-                    val artnr = item.getString("artnr")
-                    artnrGLOBAL = artnr.toInt()
+                    val pretprodus = item.getDouble("pretprodus")
+                    artnr = item.getInt("artnr")
                     // Update the name and price of the product on the display
                     runOnUiThread {
-                        textProdusNume.setText(numeprodus)
-                        textProdusPret.setText(pretprodus + " Lei")
+                        textProdusNume.text = numeprodus
+                        textProdusPret.text = "$pretprodus Lei"
                         // In case of an error the SERVER sends the pretprodus as 0
                         // So if an error occurs dont re-enable the inputCantitate editText
-                        if (pretprodus != "0") {
-                            inputCod.setEnabled(false)
-                            inputCantitate.setEnabled(true)
-                            inputCantitate.requestFocus()
-                            // Play NOTIFICATION SOUND if COD is valid
-                            try {
-                                val notification: Uri =
-                                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                                val r = RingtoneManager.getRingtone(applicationContext, notification)
-                                r.play()
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        } else {
-                            sunet_error_minor()
-                            Toast.makeText(
-                                this@ReceptieFurnizor,
-                                "Cod Inexistent!",
-                                Toast.LENGTH_LONG
-                            ).show()
+                        inputCod.isEnabled = false
+                        inputCantitate.isEnabled = true
+                        inputCantitate.requestFocus()
+                        // Play NOTIFICATION SOUND if COD is valid
+                        try {
+                            val notification: Uri =
+                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                            val r = RingtoneManager.getRingtone(
+                                applicationContext,
+                                notification
+                            )
+                            r.play()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
                     }
-                } catch (e: Exception) {
-                    println(e)
+                } catch (e : JSONException) {
+//                        ARTNR is NULL (nu exista cod EAN)
+                    sunetErrorMinor()
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@ReceptieFurnizor,
+                            "Cod Inexistent!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
         catch (e: java.lang.Exception) {
             println(e)
-            sunet_error_major()
+            sunetErrorMajor()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -344,27 +369,22 @@ class ReceptieFurnizor : AppCompatActivity() {
     }
 
     // Get the current CantitateReceptie and CountReceptie
-    suspend fun getJsonCountCantitate()  {
+    private fun getJsonCountCantitate()  {
         try {
-            val url = URL("http://" + serverip + ":8001/cantitatereceptie")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/cantitatereceptie")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"idrec\": " + idrecGLOBAL + "}"
+                val jsonrequest = "{\"idrec\": $idrec}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
 
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
@@ -382,16 +402,16 @@ class ReceptieFurnizor : AppCompatActivity() {
                     // Convert the response string to a JSON array
                     // The SERVER should return the name and price of the product
                     val item = jsonArray.getJSONObject(0)
-                    val countreceptie = item.getString("countreceptie")
-                    val cantitatereceptie = item.getString("cantitatereceptie")
+                    val countreceptie = item.getInt("countreceptie")
+                    val cantitatereceptie = item.getDouble("cantitatereceptie")
                     println(countreceptie)
                     println(cantitatereceptie)
                     // Update the name and price of the product on the display
-                    CantitateReceptieNR = countreceptie.toInt()
-                    CantitateReceptieTotal = cantitatereceptie.toFloat().toInt()
+                    cantitateReceptieNR = countreceptie
+                    cantitateReceptieTotal = cantitatereceptie
                     runOnUiThread {
-                        textNrProduseNR.setText(CantitateReceptieNR.toString())
-                        textCantitateTotalaNR.setText(CantitateReceptieTotal.toString())
+                        textNrProduseNR.text = cantitateReceptieNR.toString()
+                        textCantitateTotalaNR.text = cantitateReceptieTotal.toString()
                     }
                 } catch (e: Exception) {
                     println(e)
@@ -400,7 +420,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
-            sunet_error_major()
+            sunetErrorMajor()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -409,27 +429,23 @@ class ReceptieFurnizor : AppCompatActivity() {
     }
 
     // Send the COD and CANTITATE to the SERVER to add to the DATABASE
-    suspend fun sendJsonArticolCurent(codprodus: String)  {
+    private fun sendJsonArticolCurent() {
         try {
-            val url = URL("http://" + serverip + ":8001/produscurent")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/produscurent")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"idrec\": " + idrecGLOBAL + ",\"artnr\": " + artnrGLOBAL + ",\"docnr\": " + docnr + ",\"cantitate\": " + inputCantitate.text + "}"
+                val cantitate = inputCantitate.text
+                val jsonrequest = "{\"idrec\": $idrec,\"artnr\": $artnr,\"docnr\": $docnr,\"cantitate\": $cantitate}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
                 // Save response from HTTP GET request to string response
@@ -443,9 +459,9 @@ class ReceptieFurnizor : AppCompatActivity() {
                 // Convert the response string to a JSON array
                 val jsonArray = JSONTokener(response).nextValue() as JSONArray
                 val item = jsonArray.getJSONObject((0))
-                val success = item.getString("success")
+                val success = item.getBoolean("success")
                 // The SERVER should send back success = True to indicate that it got the COD and CANTITATE, and play a NOTIFICATION SOUND
-                if (success.toBoolean() == true) {
+                if (success) {
                     try {
                         val notification: Uri =
                             RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -457,24 +473,16 @@ class ReceptieFurnizor : AppCompatActivity() {
                 }
                 // Set the text on screen to default and update the How many items in the receptie and total of everything
 
-//// maybe use Clear function here?
                 runOnUiThread {
-//                    inputCod.setText("")
-//                    inputCantitate.setText("")
-//                    inputCod.setEnabled(true)
-//                    inputCod.requestFocus()
-//                    inputCantitate.setEnabled(false)
-//                    textProdusNume.setText("Articol")
-//                    textProdusPret.setText("Pret")
                     functieClearReceptie()
-                    textNrProduseNR.setText(CantitateReceptieNR.toString())
-                    textCantitateTotalaNR.setText(CantitateReceptieTotal.toString())
+                    textNrProduseNR.text = cantitateReceptieNR.toString()
+                    textCantitateTotalaNR.text = cantitateReceptieTotal.toString()
                 }
             }
         }
         catch (e: java.lang.Exception) {
             println(e)
-            sunet_error_major()
+            sunetErrorMajor()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()
@@ -482,27 +490,22 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
     }
 
-    suspend fun sendJsonEmiteReceptie() {
+    private suspend fun sendJsonEmiteReceptie() {
         try {
-            val url = URL("http://" + serverip + ":8001/emitereceptie")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/emitereceptie")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"idrec\": " + idrecGLOBAL + "}"
+                val jsonrequest = "{\"idrec\": $idrec}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
                 // Save response from HTTP POST request to string response
@@ -517,8 +520,8 @@ class ReceptieFurnizor : AppCompatActivity() {
                 // The SERVER should return the success = True back to finish this activity
                 val jsonArray = JSONTokener(response).nextValue() as JSONArray
                 val item = jsonArray.getJSONObject((0))
-                val success = item.getString("success")
-                if (success.toBoolean() == true) {
+                val success = item.getBoolean("success")
+                if (success) {
                     runOnUiThread {
                         Toast.makeText(
                             this@ReceptieFurnizor,
@@ -536,7 +539,7 @@ class ReceptieFurnizor : AppCompatActivity() {
         }
         catch (e: java.lang.Exception) {
             println(e)
-            sunet_error_major()
+            sunetErrorMajor()
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizor, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
                     .show()

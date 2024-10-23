@@ -3,8 +3,12 @@ package com.example.mobility
 import android.content.Intent
 import android.media.MediaPlayer
 import android.os.Bundle
-import android.view.View
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ListView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.UiThread
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.GlobalScope
@@ -13,17 +17,17 @@ import org.json.JSONArray
 import org.json.JSONTokener
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.*
-
-
-// Global variable for the current docnr (NR FACTURA)
-public var docnr = 1L
-public var idrecGLOBAL = 0
 
 class ReceptieFurnizorMain : AppCompatActivity() {
-    // The listView with all the unfinished (STARE=0) furnizori, receptii
-    var ListaFurnizoriRecInLucru = mutableListOf("No data")
-    var ListaDOCNRRecInLucru = mutableListOf(0L)
+//    furnizorCurentNume & furnizorCurentID from ReceptieLista
+    private var furnizorCurentNume = "Furnizor"
+    private var furnizorCurentID = 0
+
+    private var docnr = 1L // Nr Factura
+
+    // The listView with all the unfinished (STARE = 0) furnizori, receptii
+    private var listaFurnizoriRecInLucru = mutableListOf("No data")
+    private var listaDOCNRRecInLucru = mutableListOf(0L)
 
     private lateinit var textFurnizorCurrent: TextView
     private lateinit var editTextDoc: EditText
@@ -32,18 +36,16 @@ class ReceptieFurnizorMain : AppCompatActivity() {
     private lateinit var listviewRecInLucru: ListView
     private lateinit var buttonBackRecList: Button
 
-    lateinit var arrayAdapter: ArrayAdapter<String>
-
-    fun sunet_error_major() {
+    private lateinit var arrayAdapterStorageReceptiiLucru: ArrayAdapter<String>
+    
+    private fun sunetErrorMajor() {
         // Play custom sound to notify Major Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_major)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_major).start()
     }
 
-    fun sunet_error_minor() {
+    private fun sunetErrorMinor() {
         // Play custom sound to notify Minor Error
-        val sunet: MediaPlayer = MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_minor)
-        sunet.start()
+        MediaPlayer.create(this@ReceptieFurnizorMain, R.raw.error_minor).start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,74 +59,92 @@ class ReceptieFurnizorMain : AppCompatActivity() {
         listviewRecInLucru = findViewById(R.id.listviewRecInLucru)
         buttonBackRecList  = findViewById(R.id.buttonBackRecList)
 
+        val bundle = intent.extras!!
+        furnizorCurentNume = bundle.getString("furnizorCurentNume")!!
+        furnizorCurentID = bundle.getInt("furnizorCurentID")
+
         configurebuttonBackRecList()
 
         GlobalScope.launch {
-            getJsonRecInLucru(idfurnizorcurent)
+            getJsonRecInLucru(furnizorCurentID)
         }
 
         // Set top text to current FURNIZOR
-        textFurnizorCurrent.text = furnizorcurent
+        textFurnizorCurrent.text = furnizorCurentNume
 
         // When Apply button is clicked get the docnr (NR FACTURA)
-        buttonRecNou.setOnClickListener(object : View.OnClickListener {
-            override fun onClick(v: View) {
-                try {
-                    docnr = editTextDoc.text.toString().toLong()
+        buttonRecNou.setOnClickListener {
+            try {
+                docnr = editTextDoc.text.toString().toLong()
 
-                    if (docnr == 0L) {
-                        // NEED TO ADD IF NR FACUTRA ALREADY EXISTS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        sunet_error_minor()
-                        Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
+                if (docnr == 0L) {
+                    sunetErrorMinor()
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@ReceptieFurnizorMain,
+                            "Numar Receptie Invalid!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
-                    else {
-                        GlobalScope.launch {
-                            sendJsonDocNr(docnr, true)
-                        }
+                } else {
+                    GlobalScope.launch {
+                        sendJsonDocNr(docnr, true)
                     }
                 }
-                catch (e: Exception) {
-                    println(e)
-                    sunet_error_major()
-                    Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                println(e)
+                sunetErrorMajor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieFurnizorMain,
+                        "Numar Receptie Invalid!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-        })
+        }
 
         // Get the listView with all the unfinished (STARE=0) furnizori, receptii from the SERVER
-        buttonRecInLucru.setOnClickListener(object : View.OnClickListener {
-            override fun onClick(v: View) {
-                try {
-                    GlobalScope.launch {
-                        getJsonRecInLucru(idfurnizorcurent)
-                    }
+        buttonRecInLucru.setOnClickListener {
+            try {
+                GlobalScope.launch {
+                    getJsonRecInLucru(furnizorCurentID)
                 }
-                catch (e: Exception) {
-                    println(e)
-                    sunet_error_major()
-                    Toast.makeText(this@ReceptieFurnizorMain, "Numar Receptie Invalid!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                println(e)
+                sunetErrorMajor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieFurnizorMain,
+                        "Numar Receptie Invalid!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-        })
+        }
 
         val mListView = findViewById<ListView>(R.id.listviewRecInLucru)
-        arrayAdapter = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, ListaFurnizoriRecInLucru)
-        mListView.adapter = arrayAdapter
+        arrayAdapterStorageReceptiiLucru = ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, listaFurnizoriRecInLucru)
+        mListView.adapter = arrayAdapterStorageReceptiiLucru
 
         // If the listView with the unfinished furnizori, receptii is clicked start the next activity with the selected docnr
-        listviewRecInLucru.setOnItemClickListener { parent, view, position, id ->
+        listviewRecInLucru.setOnItemClickListener { parent, _, position, _ ->
             val docnrcurent = parent.getItemAtPosition(position).toString()  // The item that was clicked
-            if (docnrcurent.equals("No data")) {
-                sunet_error_minor()
-                Toast.makeText(this@ReceptieFurnizorMain, "Incarca Receptii in Lucru!", Toast.LENGTH_SHORT).show()
+            if (docnrcurent == "No data") {
+                sunetErrorMinor()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@ReceptieFurnizorMain,
+                        "Incarca Receptii in Lucru!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
             else {
-                docnr = ListaDOCNRRecInLucru.get(position)
+                docnr = listaDOCNRRecInLucru[position]
                 GlobalScope.launch {
                     sendJsonDocNr(docnr, false)
                 }
-                //val intent = Intent(this, ReceptieFurnizor::class.java)
-                //startActivity(intent)
             }
         }
     }
@@ -137,27 +157,22 @@ class ReceptieFurnizorMain : AppCompatActivity() {
 
     @UiThread
     // Get the unfinished (STARE=0) furnizori, receptii from the SERVER with the current IDFURN
-    suspend fun getJsonRecInLucru(idfurn: Int) {
+    fun getJsonRecInLucru(idfurn: Int) {
         try {
-            val url = URL("http://" + serverip + ":8001/receptiiinlucru")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/receptiiinlucru")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"idfurn\": " + idfurn + "}"
+                val jsonrequest = "{\"idfurn\": $idfurn}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
                 // Save response from HTTP POST request to string response
@@ -169,19 +184,19 @@ class ReceptieFurnizorMain : AppCompatActivity() {
                 }
 
                 // Clear the list before updating it, afterwards add all unfinished (STARE=0) furnizori, receptii from the SERVER
-                ListaFurnizoriRecInLucru.clear()
-                ListaDOCNRRecInLucru.clear()
+                listaFurnizoriRecInLucru.clear()
+                listaDOCNRRecInLucru.clear()
                 try {
                     // Convert the response string to a JSON array
                     val jsonArray = JSONTokener(response).nextValue() as JSONArray
                     // Go through every JSON object and add the docnr to the LISTVIEW
                     for (i in 0 until jsonArray.length()) {
                         val item = jsonArray.getJSONObject(i)
-                        val docnr = item.getString("doc")
-                        val cantitatetotala = item.getString("cantitatetotala")
-                        if (docnr.toLong() != 0L) {
-                            ListaFurnizoriRecInLucru.add("Factura: " + docnr + " , cantitate totala: " + cantitatetotala.toFloat().toInt())
-                            ListaDOCNRRecInLucru.add(docnr.toLong())
+                        val docnr = item.getLong("doc")
+                        val cantitatetotala = item.getDouble("cantitatetotala")
+                        if (docnr != 0L) {
+                            listaFurnizoriRecInLucru.add("Factura: $docnr , cantitate totala: $cantitatetotala")
+                            listaDOCNRRecInLucru.add(docnr)
                         }
                     }
                 } catch (e: Exception) {
@@ -190,14 +205,14 @@ class ReceptieFurnizorMain : AppCompatActivity() {
 
                 // Update the unfinished receptii LISTVIEW
                 runOnUiThread {
-                    arrayAdapter.notifyDataSetChanged()
+                    arrayAdapterStorageReceptiiLucru.notifyDataSetChanged()
                 }
             }
         }
         catch (e: Exception) {
             println(e)
 
-            sunet_error_major()
+            sunetErrorMajor()
 
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizorMain, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
@@ -207,27 +222,22 @@ class ReceptieFurnizorMain : AppCompatActivity() {
     }
 
     // Send to the SERVER the docnr(NR FACTURA) and the IDFURN for the current Receptie to be added in the DATABASE
-    suspend fun sendJsonDocNr(docnr: Long, boolNewReceptie: Boolean)  {
+    private fun sendJsonDocNr(docnr: Long, boolNewReceptie: Boolean)  {
         try {
-            val url = URL("http://" + serverip + ":8001/mobreceptieheader")
-            var response: String
-            response = ""
+            val url = URL("http://$serverip:8001/mobreceptieheader")
+            var response = ""
             with(url.openConnection() as HttpURLConnection) {
                 // Set connection timeout and display TOAST message if server is not responding
-                setConnectTimeout(timeoutconnection)
-
+                connectTimeout = timeoutconnection
                 requestMethod = "POST"  // optional default is GET
-
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 doOutput
 
                 // The JSON Request
-                var jsonrequest = "{\"boolNewReceptie\": " + boolNewReceptie + ",\"doc\":" + docnr + ",\"idfurn\": " + idfurnizorcurent + "}"
+                val jsonrequest = "{\"boolNewReceptie\": $boolNewReceptie,\"doc\":$docnr,\"idfurn\": $furnizorCurentID}"
                 println(jsonrequest)
 
-                var os = outputStream
-                var jsonrequestbytes = jsonrequest.toByteArray(Charsets.UTF_8)
-                os.write(jsonrequestbytes)
+                outputStream.write(jsonrequest.toByteArray(Charsets.UTF_8))
                 println("\nSent 'POST' request to URL : $url; Response Code : $responseCode")
 
                 // Save response from HTTP POST request to string response
@@ -242,26 +252,24 @@ class ReceptieFurnizorMain : AppCompatActivity() {
                 // The SERVER should return the success = True back to start the next activity
                 val jsonArray = JSONTokener(response).nextValue() as JSONArray
                 val item = jsonArray.getJSONObject((0))
-                val success = item.getString("success")
-                val idrec = item.getString("idrec")
-                idrecGLOBAL = idrec.toInt()
-                if (success.toBoolean() == true) {
-                    startActivity(
-                        Intent(
-                            this@ReceptieFurnizorMain,
-                            ReceptieFurnizor::class.java
-                        )
-                    )
+                val success = item.getBoolean("success")
+                val idrec = item.getInt("idrec")
+                if (success) {
+                    val intent = Intent(this@ReceptieFurnizorMain, ReceptieFurnizor::class.java)
+                    intent.putExtra("furnizorCurentNume", furnizorCurentNume)
+                    intent.putExtra("docnr", docnr)
+                    intent.putExtra("idrec", idrec)
+                    startActivity(intent)
                 }
                 else {
-                    if (success.toBoolean() == false) {
+                    sunetErrorMinor()
 
-                        sunet_error_minor()
-
-                        runOnUiThread {
-                            Toast.makeText(this@ReceptieFurnizorMain, "Exista deja o receptie cu nr. " + docnr.toString() + "!", Toast.LENGTH_SHORT)
-                                .show()
-                        }
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@ReceptieFurnizorMain,
+                            "Exista deja o receptie cu nr. $docnr!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
@@ -269,7 +277,7 @@ class ReceptieFurnizorMain : AppCompatActivity() {
         catch (e: Exception) {
             println(e)
 
-            sunet_error_major()
+            sunetErrorMajor()
 
             runOnUiThread {
                 Toast.makeText(this@ReceptieFurnizorMain, "Eroare comunicare SERVER!", Toast.LENGTH_SHORT)
